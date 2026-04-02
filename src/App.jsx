@@ -369,6 +369,41 @@ function ItemsTable({items, role, editField, onUpdateItem, stagesVisible}){
   const isSite = role==="site";
   const canEditPlan = isPlan && editField==="planQty";
 
+  // ── Item search ─────────────────────────────────────────────────────────────
+  const [search,setSearch]=useState("");
+  // "all" | "description" | "lineItemId" | "label"
+  const [searchField,setSearchField]=useState("all");
+  const q=search.trim().toLowerCase();
+  const filteredItems=q
+    ? items.filter(i=>{
+        if(searchField==="description") return i.name&&i.name.toLowerCase().includes(q);
+        if(searchField==="lineItemId")  return i.lineItemId&&i.lineItemId.toLowerCase().includes(q);
+        if(searchField==="label")       return i.label&&i.label.toLowerCase().includes(q);
+        // "all" — search across every field
+        const qtyRole=editField==="engQty"?i.engQty:editField==="qsQty"?i.qsQty:editField==="siteQty"?i.siteQty:i.planQty;
+        return(
+          (i.name&&i.name.toLowerCase().includes(q))||
+          (i.lineItemId&&i.lineItemId.toLowerCase().includes(q))||
+          (i.label&&i.label.toLowerCase().includes(q))||
+          (i.unit&&i.unit.toLowerCase().includes(q))||
+          String(i.planQty||0).includes(q)||
+          String(qtyRole||0).includes(q)
+        );
+      })
+    : items;
+  const FIELD_OPTS=[
+    {k:"all",         label:"All Fields"},
+    {k:"description", label:"Description"},
+    {k:"lineItemId",  label:"Line Item ID"},
+    {k:"label",       label:"Label"},
+  ];
+  const placeholders={
+    all:"Search description, line ID, label, unit, qty…",
+    description:"Search item description…",
+    lineItemId:"Search line item ID…",
+    label:"Search label…",
+  };
+
   // Auto-hide optional columns when all items have no data for that field
   // In edit mode always show so user can fill them in
   const hasLineItemId = canEditPlan || items.some(i=>i.lineItemId&&i.lineItemId.trim());
@@ -391,7 +426,48 @@ function ItemsTable({items, role, editField, onUpdateItem, stagesVisible}){
   if(showSite) minW+=190;
 
   return(
-    <div style={{overflowX:"auto"}}>
+    <div>
+      {/* ── Search bar + field filter ── */}
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        {/* Field filter chips */}
+        <div style={{display:"flex",gap:4,flexShrink:0}}>
+          {FIELD_OPTS.map(opt=>{
+            const active=searchField===opt.k;
+            const chipColor=opt.k==="description"?"var(--accent)":opt.k==="lineItemId"?"var(--plan)":opt.k==="label"?"var(--qs)":"var(--muted)";
+            return(
+              <button key={opt.k} onClick={()=>setSearchField(opt.k)}
+                style={{padding:"4px 11px",fontSize:11,fontWeight:600,borderRadius:20,border:`1px solid ${active?chipColor:"var(--border)"}`,
+                  background:active?chipColor+"20":"transparent",color:active?chipColor:"var(--muted)",
+                  cursor:"pointer",transition:"all .15s",whiteSpace:"nowrap"}}>
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        {/* Search input */}
+        <div style={{position:"relative",flex:1,minWidth:180,maxWidth:360}}>
+          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"var(--muted)",fontSize:13,pointerEvents:"none"}}>⌕</span>
+          <input
+            value={search}
+            onChange={e=>setSearch(e.target.value)}
+            placeholder={placeholders[searchField]}
+            style={{width:"100%",paddingLeft:30,paddingRight:search?28:10,boxSizing:"border-box"}}
+          />
+          {search&&(
+            <button onClick={()=>setSearch("")}
+              style={{position:"absolute",right:7,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"var(--muted)",cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>
+              ✕
+            </button>
+          )}
+        </div>
+        {/* Match count */}
+        {q&&(
+          <span style={{fontSize:11,color:"var(--muted)",whiteSpace:"nowrap",fontFamily:"monospace",flexShrink:0}}>
+            {filteredItems.length}/{items.length} items
+          </span>
+        )}
+      </div>
+      <div style={{overflowX:"auto"}}>
       <datalist id="uopts">{UNIT_LIST.map(u=><option key={u} value={u}/>)}</datalist>
       <table style={{tableLayout:"auto",width:"100%",minWidth:minW}}>
         <colgroup>
@@ -424,8 +500,8 @@ function ItemsTable({items, role, editField, onUpdateItem, stagesVisible}){
           </tr>
         </thead>
         <tbody>
-          {items.length===0&&<tr><td colSpan={14} style={{textAlign:"center",padding:"40px 0",color:"var(--muted)"}}>No items</td></tr>}
-          {items.map((item,idx)=>{
+          {filteredItems.length===0&&<tr><td colSpan={14} style={{textAlign:"center",padding:"40px 0",color:"var(--muted)"}}>{q?`No items match "${search}"`:'No items'}</td></tr>}
+          {filteredItems.map((item,idx)=>{
             const engDiff=(item.engQty||0)-(item.planQty||0);
             const qsDiff =(item.qsQty||0) -(item.engQty||0);
             const siteDiff=(item.siteQty||0)-(item.engQty||0);
@@ -508,6 +584,7 @@ function ItemsTable({items, role, editField, onUpdateItem, stagesVisible}){
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
