@@ -55,7 +55,6 @@ const INITIAL_USERS = [
   { id:7, name:"Mehta Supplies", email:"vendor2@corp.com",     password:"vend123",  role:"vendor", phone:"9876543221", designation:"Vendor",  active:true, pages:["quotes"] },
   { id:8, name:"Singh & Co.",    email:"vendor3@corp.com",     password:"vend123",  role:"vendor", phone:"9876543222", designation:"Vendor",  active:true, pages:["quotes"] },
 ];
-const ADMIN_CREDS = { email:"admin@corp.com", password:"admin123" };
 const mkInitials = n => n.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
 
 const ROLE_META = {
@@ -360,7 +359,7 @@ function NotifBell({notifications,onClear}){
 
 // ─── Items Table ──────────────────────────────────────────────────────────────
 // Columns rendered depend on role and which stages are available
-function ItemsTable({items, role, editField, onUpdateItem, stagesVisible}){
+function ItemsTable({items, role, editField, onUpdateItem, stagesVisible, lastRowRef=null}){
   // stagesVisible: { eng, qs, site }
   const {eng=false, qs=false, site=false} = stagesVisible||{};
   const isPlan = role==="planning";
@@ -505,8 +504,9 @@ function ItemsTable({items, role, editField, onUpdateItem, stagesVisible}){
             const engDiff=(item.engQty||0)-(item.planQty||0);
             const qsDiff =(item.qsQty||0) -(item.engQty||0);
             const siteDiff=(item.siteQty||0)-(item.engQty||0);
+            const isLast=idx===filteredItems.length-1;
             return(
-              <tr key={item.id} style={{verticalAlign:"top"}}>
+              <tr key={item.id} ref={isLast?lastRowRef:null} style={{verticalAlign:"top"}}>
                 <td style={{color:"var(--muted)",paddingTop:12,fontSize:12}}>{idx+1}</td>
 
                 {/* Line Item ID — only if any item has it */}
@@ -646,10 +646,6 @@ function LoginScreen({onLogin,users}){
     if(loading)return;
     setLoading(true);setErr("");
     setTimeout(()=>{
-      // Check admin first
-      if(email.trim().toLowerCase()===ADMIN_CREDS.email&&pw===ADMIN_CREDS.password){
-        setLoading(false);onLogin({id:0,name:"Admin",email:ADMIN_CREDS.email,role:"admin",avatar:"AD"});return;
-      }
       const u=users.find(u=>u.email===email.trim().toLowerCase()&&u.password===pw&&u.active!==false);
       if(u){setLoading(false);onLogin(u);}else{setErr("Invalid credentials or account disabled.");setLoading(false);}
     },400);
@@ -671,12 +667,6 @@ function LoginScreen({onLogin,users}){
           </div>
           <div style={{marginTop:18,padding:14,background:"var(--s2)",borderRadius:10}}>
             <div style={{fontSize:11,color:"var(--muted)",fontWeight:600,marginBottom:8}}>DEMO — CLICK ANY ROW TO LOGIN</div>
-            <div onClick={()=>onLogin({id:0,name:"Admin",email:ADMIN_CREDS.email,role:"admin",avatar:"AD"})}
-              style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",borderRadius:6,cursor:"pointer",marginBottom:3}}
-              onMouseEnter={e=>e.currentTarget.style.background="var(--s3)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-              <span style={{color:"#94a3b8",fontWeight:600}}>🔧 Admin</span>
-              <span style={{color:"var(--muted)",fontSize:12}}>admin@corp.com / admin123</span>
-            </div>
             {users.filter(u=>u.active!==false&&u.role!=="vendor").map(u=>(
               <div key={u.id} onClick={()=>onLogin(u)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",borderRadius:6,cursor:"pointer",marginBottom:3}}
                 onMouseEnter={e=>e.currentTarget.style.background="var(--s3)"}
@@ -705,8 +695,7 @@ function LoginScreen({onLogin,users}){
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 function Sidebar({user,page,setPage,onLogout,boqs,notifications,onClearNotif}){
-  const isAdmin=user.role==="admin";
-  const role=isAdmin?{label:"Administrator",color:"#94a3b8",icon:"🔧",level:0}:ROLE_META[user.role];
+  const role=ROLE_META[user.role]||{label:"User",color:"#94a3b8",icon:"👤",level:0};
   const engPending=boqs.filter(b=>b.status==="with_engineering").length;
   const qsPending=boqs.filter(b=>b.status==="with_qs").length;
   const sitePending=boqs.filter(b=>b.status==="with_site").length;
@@ -716,13 +705,11 @@ function Sidebar({user,page,setPage,onLogout,boqs,notifications,onClearNotif}){
     engineering:[{id:"dashboard",icon:"🏠",label:"Dashboard"},{id:"pending",icon:"📥",label:"Pending Review",badge:engPending},{id:"my-boqs",icon:"📋",label:"All BOQs"},{id:"search",icon:"🔍",label:"Search"},{id:"reports",icon:"📊",label:"Reports"}],
     qs:         [{id:"dashboard",icon:"🏠",label:"Dashboard"},{id:"pending",icon:"📥",label:"Pending Review",badge:qsPending},{id:"my-boqs",icon:"📋",label:"All BOQs"},{id:"search",icon:"🔍",label:"Search"},{id:"reports",icon:"📊",label:"Reports"}],
     site:       [{id:"dashboard",icon:"🏠",label:"Dashboard"},{id:"pending",icon:"📥",label:"Pending Review",badge:sitePending},{id:"my-boqs",icon:"📋",label:"All BOQs"},{id:"search",icon:"🔍",label:"Search"},{id:"reports",icon:"📊",label:"Reports"}],
-    admin:      [{id:"dashboard",icon:"🏠",label:"Dashboard"},{id:"users",icon:"👥",label:"User Management"},{id:"procurement",icon:"📦",label:"Procurement"},{id:"search",icon:"🔍",label:"Search"},{id:"reports",icon:"📊",label:"Reports"}],
     procurement:[{id:"dashboard",icon:"🏠",label:"Dashboard"},{id:"quotations",icon:"📝",label:"Quotations"}],
     vendor:     [{id:"quotes",icon:"📋",label:"My Quotations"}],
   };
-  // Filter nav items by user's allowed pages (admin sees all)
   const allNav=allNavMap[user.role]||[];
-  const nav=isAdmin?allNav:allNav.filter(n=>!user.pages||user.pages.includes(n.id));
+  const nav=allNav.filter(n=>!user.pages||user.pages.includes(n.id));
 
   return(
     <div style={{width:224,background:"var(--surface)",borderRight:"1px solid var(--border)",display:"flex",flexDirection:"column",height:"100vh",position:"sticky",top:0,flexShrink:0}}>
@@ -839,6 +826,13 @@ function BOQCreator({onSave,user}){
   const [done,setDone]=useState(false);
   const [srcFile,setSrcFile]=useState(null); // {name, size, dataUrl}
   const fref=useRef(null);
+  const lastRowRef=useRef(null);
+
+  const addRow=()=>{
+    setItems(p=>[...p,{id:Date.now(),lineItemId:"",label:"",name:"",unit:"",planQty:0,engQty:0,qsQty:0,siteQty:0}]);
+    // Scroll to the new row after React re-renders
+    setTimeout(()=>lastRowRef.current?.scrollIntoView({behavior:"smooth",block:"center"}),50);
+  };
 
   const upd=(id,f,v)=>{
     if(f==="__delete__"){setItems(p=>p.filter(i=>i.id!==id));return;}
@@ -913,10 +907,10 @@ function BOQCreator({onSave,user}){
           <h3 style={{fontFamily:"Sora",fontSize:16}}>📦 BOQ Items</h3>
           <div style={{display:"flex",gap:8}}>
             {items.length>0&&<Btn variant="ghost" small onClick={()=>{setItems([]);setPs(null);setPm("");}}>Clear</Btn>}
-            <Btn variant="outline" small onClick={()=>setItems(p=>[...p,{id:Date.now(),lineItemId:"",label:"",name:"",unit:"",planQty:0,engQty:0,qsQty:0,siteQty:0}])}>+ Add Row</Btn>
+            <Btn variant="outline" small onClick={addRow}>+ Add Row</Btn>
           </div>
         </div>
-        <ItemsTable items={items} role="planning" editField="planQty" onUpdateItem={upd} stagesVisible={{eng:false,qs:false,site:false}}/>
+        <ItemsTable items={items} role="planning" editField="planQty" onUpdateItem={upd} stagesVisible={{eng:false,qs:false,site:false}} lastRowRef={lastRowRef}/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,paddingTop:14,borderTop:"1px solid var(--border)"}}>
           <div style={{color:"var(--muted)",fontSize:13}}>Items: <strong style={{color:"var(--text)"}}>{items.filter(i=>i.name).length}</strong> · Total Qty: <strong style={{color:"var(--text)"}}>{items.reduce((s,i)=>s+(i.planQty||0),0).toLocaleString()}</strong></div>
           <div style={{display:"flex",gap:10}}>
@@ -2552,6 +2546,17 @@ function ProcurementDashboard(){
     try{
       const result=await parseProcurementExcel(file);
       setProcData(result);setActiveTab("PR");
+      // ── Auto-set date range from actual data min/max ──
+      const allTs=result.prs.map(d=>d.prDateTs).filter(Boolean);
+      if(allTs.length){
+        const minD=new Date(Math.min(...allTs.map(d=>d.getTime())));
+        const maxD=new Date(Math.max(...allTs.map(d=>d.getTime())));
+        const minStr=minD.toISOString().slice(0,10);
+        const maxStr=maxD.toISOString().slice(0,10);
+        setDateFrom(minStr);
+        setDateTo(maxStr);
+        setDataRange({min:minStr,max:maxStr});
+      }
     }catch(e){alert("Error parsing file: "+e.message);}
     setLoading(false);
   };
@@ -2573,7 +2578,9 @@ function ProcurementDashboard(){
   const [dateFrom,setDateFrom]=useState(""); // "YYYY-MM-DD"
   const [dateTo,setDateTo]=useState("");
   const [dateOpen,setDateOpen]=useState(false);
+  const [dataRange,setDataRange]=useState(null); // {min,max} full range of uploaded file
   const dateActive=!!(dateFrom||dateTo);
+  const isFullRange=!!(dataRange&&dateFrom===dataRange.min&&dateTo===dataRange.max);
 
   // ── Quarter presets derived from actual PR date range in data ────────────
   const quarterPresets=useMemo(()=>{
@@ -2595,6 +2602,24 @@ function ProcurementDashboard(){
     }
     return quarters;
   },[procData]);
+
+  // ── When project/CCS selection changes, auto-update date range to that project's data ──
+  useEffect(()=>{
+    if(!procData)return;
+    const activeProjSet=selCCS==="ALL"?CCS_PROJECTS:selCCS==="CLOSED"?CCS_CLOSED:selCCS==="ACTIVE"?CCS_ACTIVE:selProjects;
+    const prs=activeProjSet.size===0
+      ?procData.prs
+      :procData.prs.filter(d=>activeProjSet.has(d.projectName));
+    const allTs=prs.map(d=>d.prDateTs).filter(Boolean);
+    if(!allTs.length)return;
+    const minD=new Date(Math.min(...allTs.map(d=>d.getTime())));
+    const maxD=new Date(Math.max(...allTs.map(d=>d.getTime())));
+    const minStr=minD.toISOString().slice(0,10);
+    const maxStr=maxD.toISOString().slice(0,10);
+    setDateFrom(minStr);
+    setDateTo(maxStr);
+    setDataRange({min:minStr,max:maxStr});
+  },[selProjects,selCCS,procData]);
 
   const allGroups=useMemo(()=>{
     if(!procData)return[];
@@ -2637,7 +2662,8 @@ function ProcurementDashboard(){
       if(!fromTs&&!toTs)return true;
       // Resolve to PR creation date: direct for PRs, via prNo for POs/GRPOs
       const ts=d.prDateTs ?? prCreationMap[d.prNo] ?? null;
-      if(!ts)return false;
+      // Records with no parseable date are always included — never silently drop them
+      if(!ts)return true;
       if(fromTs&&ts<fromTs)return false;
       if(toTs&&ts>toTs)return false;
       return true;
@@ -2960,7 +2986,7 @@ function ProcurementDashboard(){
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <ExportButton prs={filteredTabs[0].docs} pos={filteredTabs[1].docs} grpos={filteredTabs[2].docs} stats={filteredStats} label="Export Filtered"/>
-          <Btn variant="ghost" small onClick={()=>{setProcData(null);setSelProjects(new Set());setSelOwners(new Set());setSelCCS("");setDateFrom("");setDateTo("");}}>↑ Upload New File</Btn>
+          <Btn variant="ghost" small onClick={()=>{setProcData(null);setSelProjects(new Set());setSelOwners(new Set());setSelCCS("");setDateFrom("");setDateTo("");setDataRange(null);}}>↑ Upload New File</Btn>
         </div>
       </div>
 
@@ -3142,15 +3168,26 @@ function ProcurementDashboard(){
 
         {/* ── Date Range column ── */}
         <div style={{position:"relative"}}>
-          <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:"var(--muted)",textTransform:"uppercase",marginBottom:6}}>
-            Filter by PR Creation Date
-            {dateActive&&<button onClick={()=>{setDateFrom("");setDateTo("");}} style={{marginLeft:8,background:"none",border:"none",color:"var(--accent)",fontSize:11,cursor:"pointer",fontWeight:600,padding:0}}>✕ Clear</button>}
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:"var(--muted)",textTransform:"uppercase",marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
+            <span>Filter by PR Creation Date</span>
+            {dataRange&&!isFullRange&&(
+              <button onClick={()=>{setDateFrom(dataRange.min);setDateTo(dataRange.max);}}
+                style={{background:"none",border:"1px solid var(--accent)",borderRadius:10,color:"var(--accent)",fontSize:10,cursor:"pointer",fontWeight:700,padding:"1px 8px",lineHeight:"16px"}}>
+                ↺ Full Range
+              </button>
+            )}
+            {dateActive&&(
+              <button onClick={()=>{setDateFrom("");setDateTo("");}}
+                style={{background:"none",border:"none",color:"var(--muted)",fontSize:11,cursor:"pointer",fontWeight:600,padding:0,marginLeft:"auto"}}>
+                ✕ Clear
+              </button>
+            )}
           </div>
           <button onClick={()=>setDateOpen(o=>!o)}
-            style={{display:"flex",alignItems:"center",gap:8,background:dateActive?"#1e3a5f":"var(--s2)",border:`1px solid ${dateOpen?"var(--accent)":dateActive?"var(--accent)":"var(--border)"}`,borderRadius:9,padding:"9px 14px",cursor:"pointer",width:"100%",textAlign:"left",transition:"border-color .15s"}}>
+            style={{display:"flex",alignItems:"center",gap:8,background:dateActive&&!isFullRange?"#1e3a5f":"var(--s2)",border:`1px solid ${dateOpen?"var(--accent)":dateActive&&!isFullRange?"var(--accent)":"var(--border)"}`,borderRadius:9,padding:"9px 14px",cursor:"pointer",width:"100%",textAlign:"left",transition:"border-color .15s"}}>
             <span style={{fontSize:15}}>📅</span>
-            <span style={{flex:1,fontSize:13,color:dateActive?"var(--accent)":"var(--muted)",fontWeight:dateActive?600:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-              {dateActive?(dateFrom||"…")+" → "+(dateTo||"…"):"All Dates"}
+            <span style={{flex:1,fontSize:13,color:dateActive&&!isFullRange?"var(--accent)":"var(--muted)",fontWeight:dateActive&&!isFullRange?600:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              {dateActive?(dateFrom||"…")+" → "+(dateTo||"…")+(isFullRange?" (Full Range)":""):"All Dates"}
             </span>
             <span style={{fontSize:10,color:"var(--muted)",flexShrink:0,marginLeft:"auto"}}>{dateOpen?"▲":"▼"}</span>
           </button>
@@ -3158,17 +3195,35 @@ function ProcurementDashboard(){
           {dateOpen&&(
             <div style={{position:"absolute",top:"100%",left:0,zIndex:400,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,boxShadow:"0 8px 32px #00000070",width:340,marginTop:4,padding:16}}>
 
-              {/* From / To */}
+              {/* ── Data range banner ── */}
+              {dataRange&&(
+                <div style={{background:"var(--s3)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 12px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                  <div>
+                    <div style={{fontSize:10,color:"var(--muted)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>📊 Data Range in File</div>
+                    <div style={{fontSize:12,color:"var(--green)",fontWeight:700,fontFamily:"monospace"}}>{dataRange.min} → {dataRange.max}</div>
+                  </div>
+                  <button onClick={()=>{setDateFrom(dataRange.min);setDateTo(dataRange.max);}}
+                    style={{padding:"4px 10px",fontSize:11,fontWeight:700,borderRadius:6,border:"1px solid var(--green)",background:"transparent",color:"var(--green)",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
+                    Use Full Range
+                  </button>
+                </div>
+              )}
+
+              {/* From / To — manual inputs */}
               <div style={{fontSize:10,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Custom Range</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
                 <div>
                   <label style={{fontSize:10,color:"var(--muted)",display:"block",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em"}}>From</label>
-                  <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+                  <input type="date" value={dateFrom}
+                    min={dataRange?.min} max={dataRange?.max}
+                    onChange={e=>setDateFrom(e.target.value)}
                     style={{width:"100%",background:"var(--s3)",border:"1px solid var(--border)",color:"var(--text)",borderRadius:7,padding:"6px 9px",fontSize:12,outline:"none",boxSizing:"border-box",colorScheme:"dark"}}/>
                 </div>
                 <div>
                   <label style={{fontSize:10,color:"var(--muted)",display:"block",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em"}}>To</label>
-                  <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
+                  <input type="date" value={dateTo}
+                    min={dataRange?.min} max={dataRange?.max}
+                    onChange={e=>setDateTo(e.target.value)}
                     style={{width:"100%",background:"var(--s3)",border:"1px solid var(--border)",color:"var(--text)",borderRadius:7,padding:"6px 9px",fontSize:12,outline:"none",boxSizing:"border-box",colorScheme:"dark"}}/>
                 </div>
               </div>
@@ -3214,11 +3269,17 @@ function ProcurementDashboard(){
               )}
 
               {/* Apply / Clear */}
-              <div style={{display:"flex",gap:8,justifyContent:"flex-end",paddingTop:10,borderTop:"1px solid var(--border)"}}>
+              <div style={{display:"flex",gap:8,justifyContent:"space-between",paddingTop:10,borderTop:"1px solid var(--border)"}}>
                 <button onClick={()=>{setDateFrom("");setDateTo("");}}
                   style={{padding:"6px 14px",fontSize:12,fontWeight:600,borderRadius:7,border:"1px solid var(--border)",background:"transparent",color:"var(--muted)",cursor:"pointer"}}>
-                  Clear
+                  Clear Dates
                 </button>
+                {dataRange&&(
+                  <button onClick={()=>{setDateFrom(dataRange.min);setDateTo(dataRange.max);}}
+                    style={{padding:"6px 14px",fontSize:12,fontWeight:600,borderRadius:7,border:"1px solid var(--green)",background:"transparent",color:"var(--green)",cursor:"pointer"}}>
+                    ↺ Full Range
+                  </button>
+                )}
                 <button onClick={()=>setDateOpen(false)}
                   style={{padding:"6px 18px",fontSize:12,fontWeight:600,borderRadius:7,border:"none",background:"var(--accent)",color:"#fff",cursor:"pointer"}}>
                   Apply
@@ -3230,9 +3291,9 @@ function ProcurementDashboard(){
           {/* Active date chip */}
           {dateActive&&(
             <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8,alignItems:"center"}}>
-              <span style={{display:"flex",alignItems:"center",gap:4,background:"#1e3a5f",border:"1px solid var(--accent)",borderRadius:20,padding:"3px 10px",fontSize:11,color:"var(--accent)",fontWeight:600}}>
-                📅 {dateFrom||"…"} → {dateTo||"…"}
-                <button onClick={()=>{setDateFrom("");setDateTo("");}} style={{background:"none",border:"none",color:"var(--accent)",cursor:"pointer",padding:0,fontSize:12,lineHeight:1}}>×</button>
+              <span style={{display:"flex",alignItems:"center",gap:4,background:isFullRange?"var(--s3)":"#1e3a5f",border:`1px solid ${isFullRange?"var(--border)":"var(--accent)"}`,borderRadius:20,padding:"3px 10px",fontSize:11,color:isFullRange?"var(--muted)":"var(--accent)",fontWeight:600}}>
+                📅 {dateFrom||"…"} → {dateTo||"…"}{isFullRange?" (Full Range)":""}
+                <button onClick={()=>{setDateFrom("");setDateTo("");}} style={{background:"none",border:"none",color:isFullRange?"var(--muted)":"var(--accent)",cursor:"pointer",padding:0,fontSize:12,lineHeight:1}}>×</button>
               </span>
             </div>
           )}
@@ -3601,7 +3662,7 @@ function ProcurementDashboard(){
         </div>
       )}
 
-      {(projOpen||ownerOpen)&&<div style={{position:"fixed",inset:0,zIndex:199}} onClick={()=>{setProjOpen(false);setProjSearch("");setOwnerOpen(false);setOwnerSearch("");}}/>}
+      {(projOpen||ownerOpen||dateOpen)&&<div style={{position:"fixed",inset:0,zIndex:199}} onClick={()=>{setProjOpen(false);setProjSearch("");setOwnerOpen(false);setOwnerSearch("");setDateOpen(false);}}/>}
     </div>
   );
 }
@@ -3789,302 +3850,6 @@ const ALL_PAGES = [
   { id:"reports",   label:"Reports",            desc:"Pipeline overview & analytics" },
 ];
 
-function UserFormModal({editUser,onSave,onClose,existingEmails}){
-  const isEdit=!!editUser;
-  const [form,setForm]=useState(editUser?{...editUser}:{
-    name:"",email:"",password:"",phone:"",designation:"",role:"planning",active:true,
-    pages:["dashboard","create","my-boqs","reports"],
-  });
-  const [errors,setErrors]=useState({});
-
-  const set=(k,v)=>setForm(p=>({...p,[k]:v}));
-
-  const togglePage=(pid)=>{
-    setForm(p=>{
-      const has=p.pages.includes(pid);
-      // dashboard always required
-      if(pid==="dashboard") return p;
-      return {...p,pages:has?p.pages.filter(x=>x!==pid):[...p.pages,pid]};
-    });
-  };
-
-  // When role changes, reset pages to role defaults
-  const setRole=(r)=>{
-    setForm(p=>({...p,role:r,pages:ROLE_PAGES[r]||[]}));
-  };
-
-  const validate=()=>{
-    const e={};
-    if(!form.name.trim()) e.name="Name required";
-    if(!form.email.trim()) e.email="Email required";
-    else if(existingEmails.includes(form.email.trim().toLowerCase())&&(!isEdit||form.email!==editUser.email)) e.email="Email already in use";
-    if(!form.password.trim()) e.password="Password required";
-    if(!form.role) e.role="Role required";
-    setErrors(e);
-    return Object.keys(e).length===0;
-  };
-
-  const handleSave=()=>{ if(validate()) onSave(form); };
-
-  const roleColor=DEPT_ROLES.find(d=>d.role===form.role)?.color||"var(--accent)";
-
-  return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div className="fade-in" style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,width:"100%",maxWidth:620,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.6)"}}>
-        {/* Modal Header */}
-        <div style={{padding:"20px 24px 16px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:"var(--surface)",zIndex:10}}>
-          <div>
-            <h2 style={{fontFamily:"Sora",fontSize:18,fontWeight:700}}>{isEdit?"Edit User":"Add New User"}</h2>
-            <p style={{fontSize:12,color:"var(--muted)",marginTop:3}}>Configure user details, role and page access</p>
-          </div>
-          <button onClick={onClose} style={{background:"var(--s2)",border:"1px solid var(--border)",color:"var(--muted)",width:32,height:32,borderRadius:8,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-        </div>
-
-        <div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:20}}>
-
-          {/* ── Personal Info ── */}
-          <section>
-            <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:".07em",marginBottom:12}}>Personal Information</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <div>
-                <label style={{fontSize:11,color:"var(--muted)",display:"block",marginBottom:5}}>FULL NAME *</label>
-                <input value={form.name} onChange={e=>set("name",e.target.value)} placeholder="John Doe"/>
-                {errors.name&&<div style={{color:"var(--red)",fontSize:11,marginTop:3}}>{errors.name}</div>}
-              </div>
-              <div>
-                <label style={{fontSize:11,color:"var(--muted)",display:"block",marginBottom:5}}>DESIGNATION</label>
-                <input value={form.designation||""} onChange={e=>set("designation",e.target.value)} placeholder="e.g. Site Supervisor"/>
-              </div>
-              <div>
-                <label style={{fontSize:11,color:"var(--muted)",display:"block",marginBottom:5}}>PHONE NUMBER</label>
-                <input value={form.phone||""} onChange={e=>set("phone",e.target.value)} placeholder="9876543210"/>
-              </div>
-              <div>
-                <label style={{fontSize:11,color:"var(--muted)",display:"block",marginBottom:5}}>STATUS</label>
-                <div style={{display:"flex",gap:8,marginTop:2}}>
-                  {[{v:true,l:"Active"},{v:false,l:"Disabled"}].map(opt=>(
-                    <button key={opt.l} onClick={()=>set("active",opt.v)} style={{flex:1,padding:"7px 0",borderRadius:8,border:`1px solid ${form.active===opt.v?(opt.v?"var(--green)":"var(--red)"):"var(--border)"}`,background:form.active===opt.v?(opt.v?"#052e16":"#3f0000"):"transparent",color:form.active===opt.v?(opt.v?"var(--green)":"var(--red)"):"var(--muted)",fontSize:12,fontWeight:600}}>{opt.l}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* ── Login Credentials ── */}
-          <section>
-            <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:".07em",marginBottom:12}}>Login Credentials</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <div>
-                <label style={{fontSize:11,color:"var(--muted)",display:"block",marginBottom:5}}>EMAIL *</label>
-                <input value={form.email} onChange={e=>set("email",e.target.value)} type="email" placeholder="user@corp.com"/>
-                {errors.email&&<div style={{color:"var(--red)",fontSize:11,marginTop:3}}>{errors.email}</div>}
-              </div>
-              <div>
-                <label style={{fontSize:11,color:"var(--muted)",display:"block",marginBottom:5}}>PASSWORD *</label>
-                <input value={form.password} onChange={e=>set("password",e.target.value)} type="text" placeholder="Set a password"/>
-                {errors.password&&<div style={{color:"var(--red)",fontSize:11,marginTop:3}}>{errors.password}</div>}
-              </div>
-            </div>
-          </section>
-
-          {/* ── Department / Role ── */}
-          <section>
-            <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:".07em",marginBottom:12}}>Department & Role</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              {DEPT_ROLES.map(d=>(
-                <button key={d.role} onClick={()=>setRole(d.role)}
-                  style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,border:`2px solid ${form.role===d.role?d.color:"var(--border)"}`,background:form.role===d.role?`${d.color}18`:"transparent",cursor:"pointer",transition:"all .15s"}}>
-                  <span style={{fontSize:20}}>{d.icon}</span>
-                  <div style={{textAlign:"left"}}>
-                    <div style={{fontSize:12,fontWeight:700,color:form.role===d.role?d.color:"var(--text)"}}>{d.label}</div>
-                    <div style={{fontSize:10,color:"var(--muted)"}}>Level {DEPT_ROLES.findIndex(x=>x.role===d.role)+1}</div>
-                  </div>
-                  {form.role===d.role&&<div style={{marginLeft:"auto",width:8,height:8,borderRadius:"50%",background:d.color}}/>}
-                </button>
-              ))}
-            </div>
-            {errors.role&&<div style={{color:"var(--red)",fontSize:11,marginTop:6}}>{errors.role}</div>}
-          </section>
-
-          {/* ── Page Access Control ── */}
-          <section>
-            <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:".07em",marginBottom:4}}>Page Access Control</div>
-            <p style={{fontSize:12,color:"var(--muted)",marginBottom:12}}>Choose which sections this user can access. Dashboard is always enabled.</p>
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {ALL_PAGES.map(pg=>{
-                const allowed=ROLE_PAGES[form.role]?.includes(pg.id);
-                const enabled=form.pages?.includes(pg.id);
-                const isDash=pg.id==="dashboard";
-                if(!allowed) return null; // hide pages not applicable to role
-                return(
-                  <div key={pg.id} onClick={()=>!isDash&&togglePage(pg.id)}
-                    style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,border:`1px solid ${enabled?roleColor:"var(--border)"}`,background:enabled?`${roleColor}10`:"var(--s2)",cursor:isDash?"not-allowed":"pointer",transition:"all .15s",opacity:isDash?0.7:1}}>
-                    {/* Toggle pill */}
-                    <div style={{width:36,height:20,borderRadius:20,background:enabled?roleColor:"var(--border)",position:"relative",flexShrink:0,transition:"background .2s"}}>
-                      <div style={{position:"absolute",top:2,left:enabled?18:2,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
-                    </div>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13,fontWeight:600,color:enabled?"var(--text)":"var(--muted)"}}>{pg.label}</div>
-                      <div style={{fontSize:11,color:"var(--muted)",marginTop:1}}>{pg.desc}{isDash?" — always required":""}</div>
-                    </div>
-                    <div style={{fontSize:11,fontWeight:600,color:enabled?roleColor:"var(--muted)",background:enabled?`${roleColor}20`:"var(--s3)",padding:"2px 9px",borderRadius:20}}>{enabled?"ON":"OFF"}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        </div>
-
-        {/* Footer Buttons */}
-        <div style={{padding:"16px 24px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:10,position:"sticky",bottom:0,background:"var(--surface)"}}>
-          <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
-          <Btn variant="primary" onClick={handleSave}>{isEdit?"Save Changes":"Create User"}</Btn>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Admin: User Card ──────────────────────────────────────────────────────────
-function UserCard({u,onEdit,onToggle,onDelete}){
-  const dept=DEPT_ROLES.find(d=>d.role===u.role)||{color:"#64748b",icon:"👤",label:"Unknown"};
-  return(
-    <div style={{background:"var(--s2)",border:`1px solid ${u.active?"var(--border)":"#ef444440"}`,borderRadius:12,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,transition:"all .2s"}}>
-      {/* Avatar */}
-      <div style={{width:42,height:42,borderRadius:12,background:`${dept.color}28`,border:`1px solid ${dept.color}50`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:dept.color,flexShrink:0}}>
-        {mkInitials(u.name)}
-      </div>
-      {/* Info */}
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-          <span style={{fontSize:14,fontWeight:600,whiteSpace:"nowrap"}}>{u.name}</span>
-          {!u.active&&<span style={{fontSize:10,background:"#3f0000",color:"var(--red)",border:"1px solid #ef444440",borderRadius:20,padding:"1px 7px",fontWeight:600}}>DISABLED</span>}
-        </div>
-        <div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>{u.designation||"—"} · {u.email}</div>
-        <div style={{fontSize:11,color:"var(--muted)",marginTop:1}}>📱 {u.phone||"—"}</div>
-        {/* Page access pills */}
-        <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>
-          {(u.pages||[]).map(pid=>(
-            <span key={pid} style={{fontSize:10,background:`${dept.color}20`,color:dept.color,border:`1px solid ${dept.color}35`,borderRadius:20,padding:"1px 7px",fontWeight:600}}>
-              {PAGE_LABELS[pid]||pid}
-            </span>
-          ))}
-        </div>
-      </div>
-      {/* Actions */}
-      <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-        <Btn small variant="outline" onClick={()=>onEdit(u)}>Edit</Btn>
-        <button onClick={()=>onToggle(u)}
-          style={{padding:"4px 10px",fontSize:11,fontWeight:600,borderRadius:6,border:`1px solid ${u.active?"#ef444440":"#10b98140"}`,background:u.active?"#3f0000":"#052e16",color:u.active?"var(--red)":"var(--green)",cursor:"pointer"}}>
-          {u.active?"Disable":"Enable"}
-        </button>
-        <button onClick={()=>onDelete(u)}
-          style={{padding:"4px 10px",fontSize:11,fontWeight:600,borderRadius:6,border:"1px solid #ef444440",background:"transparent",color:"var(--red)",cursor:"pointer"}}>
-          Delete
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Admin: User Management Page ──────────────────────────────────────────────
-function AdminUsers({users,onAdd,onEdit,onToggle,onDelete}){
-  const [modal,setModal]=useState(null); // null | "add" | userObj
-  const [activeDept,setActiveDept]=useState("all");
-  const [search,setSearch]=useState("");
-
-  const filtered=users.filter(u=>{
-    if(activeDept!=="all"&&u.role!==activeDept) return false;
-    if(search&&!u.name.toLowerCase().includes(search.toLowerCase())&&!u.email.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
-
-  const handleSave=(form)=>{
-    if(modal==="add"){
-      onAdd({...form,id:Date.now(),avatar:mkInitials(form.name)});
-    } else {
-      onEdit({...modal,...form,avatar:mkInitials(form.name)});
-    }
-    setModal(null);
-  };
-
-  const existingEmails=users.map(u=>u.email.toLowerCase());
-
-  return(
-    <div className="fade-in">
-      {/* Modal */}
-      {modal&&<UserFormModal editUser={modal==="add"?null:modal} onSave={handleSave} onClose={()=>setModal(null)} existingEmails={existingEmails}/>}
-
-      <div style={{marginBottom:22}}>
-        <h1 style={{fontFamily:"Sora",fontSize:22,fontWeight:700}}>👥 User Management</h1>
-        <p style={{color:"var(--muted)",fontSize:13,marginTop:4}}>Manage user accounts, departments, and page access controls</p>
-      </div>
-
-      {/* Summary cards per dept */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:22}}>
-        {DEPT_ROLES.map(d=>{
-          const count=users.filter(u=>u.role===d.role).length;
-          const active=users.filter(u=>u.role===d.role&&u.active!==false).length;
-          return(
-            <div key={d.role} onClick={()=>setActiveDept(activeDept===d.role?"all":d.role)}
-              style={{background:"var(--surface)",border:`2px solid ${activeDept===d.role?d.color:"var(--border)"}`,borderRadius:12,padding:"14px 16px",cursor:"pointer",transition:"all .2s",boxShadow:activeDept===d.role?`0 0 14px ${d.color}30`:"none"}}
-              onMouseEnter={e=>e.currentTarget.style.borderColor=`${d.color}80`}
-              onMouseLeave={e=>e.currentTarget.style.borderColor=activeDept===d.role?d.color:"var(--border)"}>
-              <div style={{fontSize:22,marginBottom:6}}>{d.icon}</div>
-              <div style={{fontSize:13,fontWeight:700,color:d.color}}>{d.label}</div>
-              <div style={{fontSize:22,fontFamily:"Sora",fontWeight:800,color:d.color,margin:"6px 0"}}>{count}</div>
-              <div style={{fontSize:11,color:"var(--muted)"}}>{active} active{count!==active?`, ${count-active} disabled`:""}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Toolbar */}
-      <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search users…" style={{width:240}}/>
-        {activeDept!=="all"&&<Btn small variant="ghost" onClick={()=>setActiveDept("all")}>Show All Depts ✕</Btn>}
-        <div style={{marginLeft:"auto"}}>
-          <Btn variant="primary" onClick={()=>setModal("add")}>+ Add User</Btn>
-        </div>
-      </div>
-
-      {/* Department sections */}
-      {(activeDept==="all"?DEPT_ROLES:[DEPT_ROLES.find(d=>d.role===activeDept)]).map(dept=>{
-        const deptUsers=filtered.filter(u=>u.role===dept.role);
-        return(
-          <div key={dept.role} style={{marginBottom:24}}>
-            {/* Section header */}
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,padding:"10px 14px",background:`${dept.color}10`,border:`1px solid ${dept.color}30`,borderRadius:10}}>
-              <span style={{fontSize:20}}>{dept.icon}</span>
-              <div style={{flex:1}}>
-                <span style={{fontWeight:700,color:dept.color,fontSize:14}}>{dept.label}</span>
-                <span style={{color:"var(--muted)",fontSize:12,marginLeft:8}}>{deptUsers.length} user{deptUsers.length!==1?"s":""}</span>
-              </div>
-              <Btn small variant="outline" onClick={()=>setModal("add")} style={{borderColor:dept.color,color:dept.color}}>+ Add to {dept.label}</Btn>
-            </div>
-
-            {deptUsers.length===0?(
-              <div style={{textAlign:"center",padding:"24px 0",color:"var(--muted)",background:"var(--s2)",borderRadius:10,border:"1px dashed var(--border)"}}>
-                No users in this department. <button onClick={()=>setModal("add")} style={{background:"none",border:"none",color:"var(--accent)",cursor:"pointer",fontSize:13}}>Add one →</button>
-              </div>
-            ):(
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {deptUsers.map(u=>(
-                  <UserCard key={u.id} u={u}
-                    onEdit={u=>setModal(u)}
-                    onToggle={onToggle}
-                    onDelete={onDelete}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ─── Global BOQ Search ─────────────────────────────────────────────────────────
 const STATUS_COLOR={draft:"#64748b",with_engineering:"#3b9eff",with_qs:"#f0a030",with_site:"#8b5cf6",approved:"#22c55e",rejected:"#ef4444"};
 const STATUS_LABEL={draft:"Draft",with_engineering:"Engineering",with_qs:"QS",with_site:"Site",approved:"Approved",rejected:"Rejected"};
@@ -4262,55 +4027,6 @@ function GlobalSearch({boqs,users,onSelectBoq}){
 }
 
 // ─── Admin: Dashboard ──────────────────────────────────────────────────────────
-function AdminDashboard({users,boqs,setPage}){
-  const active=users.filter(u=>u.active!==false).length;
-  const disabled=users.filter(u=>u.active===false).length;
-  return(
-    <div className="fade-in">
-      <div style={{marginBottom:22}}>
-        <h1 style={{fontFamily:"Sora",fontSize:22,fontWeight:700}}>🔧 Admin Dashboard</h1>
-        <p style={{color:"var(--muted)",fontSize:13,marginTop:4}}>System overview — manage users and monitor BOQ pipeline</p>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:24}}>
-        <StatCard icon="👥" label="Total Users" value={users.length} color="#94a3b8"/>
-        <StatCard icon="✅" label="Active Users" value={active} color="var(--green)"/>
-        <StatCard icon="🚫" label="Disabled" value={disabled} color="var(--red)"/>
-        <StatCard icon="📋" label="Total BOQs" value={boqs.length} color="var(--accent)"/>
-      </div>
-
-      {/* Dept breakdown */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:24}}>
-        {DEPT_ROLES.map(d=>{
-          const du=users.filter(u=>u.role===d.role);
-          return(
-            <div key={d.role} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:16}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-                <span style={{fontSize:20}}>{d.icon}</span>
-                <span style={{fontWeight:600,color:d.color}}>{d.label}</span>
-                <span style={{marginLeft:"auto",fontSize:20,fontFamily:"Sora",fontWeight:800,color:d.color}}>{du.length}</span>
-              </div>
-              {du.length===0?<div style={{fontSize:12,color:"var(--muted)"}}>No users</div>:
-                du.map(u=>(
-                  <div key={u.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid var(--border)"}}>
-                    <div style={{width:26,height:26,borderRadius:8,background:`${d.color}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:d.color}}>{mkInitials(u.name)}</div>
-                    <div style={{flex:1}}><div style={{fontSize:12,fontWeight:500}}>{u.name}</div><div style={{fontSize:10,color:"var(--muted)"}}>{u.designation||u.email}</div></div>
-                    {!u.active&&<span style={{fontSize:9,background:"#3f0000",color:"var(--red)",borderRadius:20,padding:"1px 6px"}}>OFF</span>}
-                  </div>
-                ))
-              }
-            </div>
-          );
-        })}
-      </div>
-
-      <div style={{display:"flex",gap:12}}>
-        <Btn variant="primary" onClick={()=>setPage("users")}>Manage Users →</Btn>
-        <Btn variant="outline" onClick={()=>setPage("reports")}>View Reports →</Btn>
-      </div>
-    </div>
-  );
-}
-
 // ─── QUOTATION COMPARISON SYSTEM ─────────────────────────────────────────────
 
 const RFQ_STORAGE_KEY="rfq_data_v1";
@@ -5059,11 +4775,6 @@ export default function App(){
   const [notifs,setNotifs]=useState({});
   const [users,setUsers]=useState(INITIAL_USERS);
 
-  // User management handlers (admin only)
-  const addUser=u=>setUsers(p=>[...p,u]);
-  const editUser=u=>setUsers(p=>p.map(x=>x.id===u.id?u:x));
-  const toggleUser=u=>setUsers(p=>p.map(x=>x.id===u.id?{...x,active:!x.active}:x));
-  const deleteUser=u=>{if(window.confirm(`Delete ${u.name}?`)) setUsers(p=>p.filter(x=>x.id!==u.id));};
   const [boqs,setBoqs]=useState([
     {
       id:1,boqId:"BOQ-DEMO01",createdBy:1,createdAt:Date.now()-86400000*4,
@@ -5142,18 +4853,6 @@ export default function App(){
   const canAccess=pg=>!user.pages||user.pages.includes(pg);
 
   const render=()=>{
-    // ── Admin routes ──
-    if(user.role==="admin"){
-      if(sel){
-        // Admin can view any BOQ (read-only via PlanningView)
-        return <PlanningView boq={sel} onBack={()=>setSel(null)} onUpdateBoq={(updated)=>{setBoqs(p=>p.map(b=>b.id===updated.id?updated:b));setSel(updated);}}/>;
-      }
-      if(page==="dashboard") return <AdminDashboard users={users} boqs={boqs} setPage={setPage}/>;
-      if(page==="users")     return <AdminUsers users={users} onAdd={addUser} onEdit={editUser} onToggle={toggleUser} onDelete={deleteUser}/>;
-      if(page==="search")    return <GlobalSearch boqs={boqs} users={users} onSelectBoq={b=>{setSel(b);setPage("dashboard");}}/>;
-      if(page==="reports")   return <Reports boqs={boqs} user={user} onSelect={b=>setSel(b)} users={users}/>;
-    }
-
     // ── BOQ detail views ──
     if(sel){
       if(user.role==="planning")    return <PlanningView    boq={sel} onBack={()=>setSel(null)} onUpdateBoq={(updated)=>{setBoqs(p=>p.map(b=>b.id===updated.id?updated:b));setSel(updated);}}/>;
@@ -5196,8 +4895,6 @@ export default function App(){
       if(page==="quotations") return <QuotationsPage user={user} vendorUsers={vendorUsers}/>;
       if(canAccess("procurement")) return <ProcurementDashboard/>;
     }
-    // ── Admin procurement page ──
-    if(user.role==="admin"&&page==="procurement") return <ProcurementDashboard/>;
     // No access fallback
     return <div style={{textAlign:"center",padding:"80px 20px",color:"var(--muted)"}}><div style={{fontSize:48,marginBottom:16}}>🚫</div><div style={{fontSize:18,fontWeight:600}}>Access Denied</div><p style={{marginTop:8}}>You don't have permission to view this page.</p></div>;
   };
