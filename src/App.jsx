@@ -46,10 +46,10 @@ const PAGE_LABELS = {
 };
 
 const INITIAL_USERS = [
-  { id:1, name:"Ananya Sharma", email:"planning@corp.com",    password:"plan123", role:"planning",    phone:"9876543210", designation:"Planning Manager",  active:true, pages:["dashboard","create","my-boqs","reports"] },
-  { id:2, name:"Divya Nair",    email:"engineering@corp.com", password:"eng123",  role:"engineering", phone:"9876543211", designation:"Senior Engineer",    active:true, pages:["dashboard","pending","my-boqs","reports"] },
-  { id:3, name:"Ravi Pillai",   email:"qs@corp.com",          password:"qs123",   role:"qs",          phone:"9876543212", designation:"QS Analyst",         active:true, pages:["dashboard","pending","my-boqs","reports"] },
-  { id:4, name:"Kiran Babu",    email:"site@corp.com",        password:"site123", role:"site",        phone:"9876543213", designation:"Site Supervisor",    active:true, pages:["dashboard","pending","my-boqs","reports"] },
+  { id:1, name:"user_1", email:"planning@listenlights.com",    password:"plan123", role:"planning",    phone:"9876543210", designation:"Planning Manager",  active:true, pages:["dashboard","create","my-boqs","reports"] },
+  { id:2, name:"user_2",    email:"engineering@listenlights.com", password:"eng123",  role:"engineering", phone:"9876543211", designation:"Senior Engineer",    active:true, pages:["dashboard","pending","my-boqs","reports"] },
+  { id:3, name:"user_3",   email:"QS@listenlights.com",          password:"qs123",   role:"qs",          phone:"9876543212", designation:"QS Analyst",         active:true, pages:["dashboard","pending","my-boqs","reports"] },
+  { id:4, name:"user_4",    email:"site@listenlights.com",        password:"site123", role:"site",        phone:"9876543213", designation:"Site Supervisor",    active:true, pages:["dashboard","pending","my-boqs","reports"] },
   { id:5, name:"Priya Menon",    email:"procurement@corp.com", password:"proc123",  role:"procurement", phone:"9876543214", designation:"Procurement Manager", active:true, pages:["dashboard","procurement","quotations"] },
   { id:6, name:"Rahul Traders",  email:"vendor1@corp.com",     password:"vend123",  role:"vendor", phone:"9876543220", designation:"Vendor",  active:true, pages:["quotes"] },
   { id:7, name:"Mehta Supplies", email:"vendor2@corp.com",     password:"vend123",  role:"vendor", phone:"9876543221", designation:"Vendor",  active:true, pages:["quotes"] },
@@ -58,19 +58,19 @@ const INITIAL_USERS = [
 const mkInitials = n => n.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
 
 const ROLE_META = {
-  planning:    { label:"Planning Team",        color:"#8b5cf6", icon:"📐", level:1 },
-  engineering: { label:"Engineering Team",     color:"#10b981", icon:"⚙️", level:2 },
-  qs:          { label:"Quantity Survey Team", color:"#f59e0b", icon:"📏", level:3 },
-  site:        { label:"Site Team",            color:"#f43f5e", icon:"🏗️", level:4 },
-  procurement: { label:"Procurement Team",     color:"#f0a030", icon:"📦", level:5 },
-  vendor:      { label:"Vendor",               color:"#06b6d4", icon:"🏭", level:6 },
+  planning:    { label:"Project Control",        color:"#8b5cf6", icon:"📐" },
+  engineering: { label:"Engineering Team",     color:"#10b981", icon:"⚙️" },
+  qs:          { label:"Quantity Survey Team", color:"#f59e0b", icon:"📏" },
+  site:        { label:"Project Team",            color:"#f43f5e", icon:"🏗️" },
+  procurement: { label:"Procurement Team",     color:"#f0a030", icon:"📦" },
+  vendor:      { label:"Vendor",               color:"#06b6d4", icon:"🏭" },
 };
 
 const STATUS_META = {
   draft:           { label:"Draft",                    color:"#64748b", bg:"#1e293b" },
   with_engineering:{ label:"With Engineering",         color:"#10b981", bg:"#064e3b" },
   with_qs:         { label:"With Quantity Survey",     color:"#f59e0b", bg:"#3d2600" },
-  with_site:       { label:"With Site Team",           color:"#f43f5e", bg:"#3f0018" },
+  with_site:       { label:"With Project Team",           color:"#f43f5e", bg:"#3f0018" },
   completed:       { label:"Completed",                color:"#3b82f6", bg:"#1e3a5f" },
 };
 
@@ -126,9 +126,15 @@ function cleanLineItemId(raw) {
 // Key rule: a row is a "spec / note" row if it has text only in the description
 // column and nothing else meaningful (no line-item id, no unit, no qty).
 // These are background paragraphs that explain the items below them — NOT line items.
-// Sheet selection: try all sheets, return results from the one with the most items.
-// This stops a cover / summary sheet (e.g. one with DATE / REVISION / R0 rows)
-// from being chosen over the real BOQ sheet.
+// Parse ALL sheets — returns array of {sheetName, items}
+function parseAllSheets(wb) {
+  return wb.SheetNames.map(name => ({
+    sheetName: name,
+    items: trySheet(wb.Sheets[name]),
+  }));
+}
+
+// Legacy single-best-sheet picker (kept for non-multi-sheet paths)
 function parseSheetToItems(wb) {
   let best = [];
   for (const s of wb.SheetNames) {
@@ -488,7 +494,7 @@ function ItemsTable({items, role, editField, onUpdateItem, stagesVisible, lastRo
             {hasLabel&&<th>Label</th>}
             <th>Item Description</th>
             {hasUnit&&<th style={{textAlign:"center"}}>Unit</th>}
-            <th style={{textAlign:"center",color:"var(--plan)"}}>Plan Qty</th>
+            <th style={{textAlign:"center",color:"var(--plan)"}}>BOQ Qty</th>
             {showEng&&<th style={{textAlign:"center",color:"var(--eng)"}}>Eng. Qty</th>}
             {showEng&&<th style={{textAlign:"center"}}>Eng↔Plan</th>}
             {showQS &&<th style={{textAlign:"center",color:"var(--qs)"}}>QS Qty</th>}
@@ -541,7 +547,7 @@ function ItemsTable({items, role, editField, onUpdateItem, stagesVisible, lastRo
                   </td>
                 )}
 
-                {/* Plan Qty — locked after submit */}
+                {/* BOQ Qty — locked after submit */}
                 <td style={{textAlign:"center",paddingTop:10}}>
                   {canEditPlan
                     ?<input type="number" value={item.planQty||0} min={0} onChange={e=>onUpdateItem(item.id,"planQty",pn(e.target.value))} style={{textAlign:"center"}}/>
@@ -655,8 +661,8 @@ function LoginScreen({onLogin,users}){
       <div className="fade-in" style={{width:"100%",maxWidth:460,padding:20}}>
         <div style={{textAlign:"center",marginBottom:26}}>
           <div style={{width:64,height:64,borderRadius:18,background:"linear-gradient(135deg,#8b5cf6,#3b82f6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,margin:"0 auto 14px",boxShadow:"0 0 30px #8b5cf640"}}>📋</div>
-          <h1 style={{fontFamily:"Sora",fontSize:26,fontWeight:800}}>BOQ Workflow</h1>
-          <p style={{color:"var(--muted)",fontSize:13,marginTop:5}}>4-Team Bill of Quantities Management</p>
+          <h1 style={{fontFamily:"Sora",fontSize:26,fontWeight:800}}>ELIZA</h1>
+          <p style={{color:"var(--muted)",fontSize:13,marginTop:5}}></p>
         </div>
         <Card style={{padding:28}}>
           <div style={{display:"flex",flexDirection:"column",gap:13}}>
@@ -666,7 +672,7 @@ function LoginScreen({onLogin,users}){
             <Btn onClick={go} disabled={loading} style={{width:"100%",padding:12,marginTop:2}}>{loading?"Signing in…":"Sign In →"}</Btn>
           </div>
           <div style={{marginTop:18,padding:14,background:"var(--s2)",borderRadius:10}}>
-            <div style={{fontSize:11,color:"var(--muted)",fontWeight:600,marginBottom:8}}>DEMO — CLICK ANY ROW TO LOGIN</div>
+            <div style={{fontSize:11,color:"var(--muted)",fontWeight:600,marginBottom:8}}></div>
             {users.filter(u=>u.active!==false&&u.role!=="vendor").map(u=>(
               <div key={u.id} onClick={()=>onLogin(u)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",borderRadius:6,cursor:"pointer",marginBottom:3}}
                 onMouseEnter={e=>e.currentTarget.style.background="var(--s3)"}
@@ -716,13 +722,13 @@ function Sidebar({user,page,setPage,onLogout,boqs,notifications,onClearNotif}){
       <div style={{padding:"18px 16px 14px",borderBottom:"1px solid var(--border)"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#8b5cf6,#3b82f6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>📋</div>
-          <div><div style={{fontFamily:"Sora",fontWeight:700,fontSize:14}}>BOQ Workflow</div><div style={{fontSize:10,color:"var(--muted)"}}>Enterprise Edition</div></div>
+          <div><div style={{fontFamily:"Sora",fontWeight:700,fontSize:14}}>ELIZA</div><div style={{fontSize:10,color:"var(--muted)"}}></div></div>
         </div>
       </div>
       <div style={{padding:"10px 14px",borderBottom:"1px solid var(--border)"}}>
         <div style={{background:`${role.color}18`,border:`1px solid ${role.color}30`,borderRadius:8,padding:"8px 11px",display:"flex",alignItems:"center",gap:8}}>
           <span style={{fontSize:16}}>{role.icon}</span>
-          <div><div style={{fontSize:11,fontWeight:600,color:role.color}}>{role.label}</div><div style={{fontSize:10,color:"var(--muted)"}}>Level {role.level}</div></div>
+          <div><div style={{fontSize:11,fontWeight:600,color:role.color}}>{role.label}</div></div>
         </div>
       </div>
       <nav style={{flex:1,padding:"8px 6px"}}>
@@ -818,15 +824,106 @@ function PlanningDash({boqs,user,setPage,notifications}){
 }
 
 // ─── BOQ Creator ──────────────────────────────────────────────────────────────
+
+// ─── Export BOQ to Excel per stage ────────────────────────────────────────────
+function exportBoqExcel(boq, stage){
+  // stage: "planning" | "engineering" | "qs" | "site" | "full"
+  const stageMap={
+    planning: {label:"BOQ Qty",   cols:["planQty"],                    filename:"PLANNING"},
+    engineering:{label:"Eng Qty", cols:["planQty","engQty"],           filename:"ENGINEERING"},
+    qs:        {label:"QS Qty",   cols:["planQty","engQty","qsQty"],   filename:"QS"},
+    site:      {label:"Site Qty", cols:["planQty","engQty","qsQty","siteQty"], filename:"SITE"},
+    full:      {label:"All",      cols:["planQty","engQty","qsQty","siteQty"], filename:"FULL"},
+  };
+  const s=stageMap[stage]||stageMap.full;
+  const colHeaders=["#","Line Item ID","Label","Description","Unit"];
+  const colKeys=["#","lineItemId","label","name","unit"];
+  const qtyLabels={"planQty":"BOQ Qty","engQty":"Eng Qty","qsQty":"QS Qty","siteQty":"Site Qty"};
+  s.cols.forEach(k=>{ colHeaders.push(qtyLabels[k]); colKeys.push(k); });
+  // Add diff columns for stages beyond first
+  if(s.cols.includes("engQty")){ colHeaders.push("Eng↔BOQ"); colKeys.push("_engDiff"); }
+  if(s.cols.includes("qsQty")){  colHeaders.push("QS↔Eng");  colKeys.push("_qsDiff");  }
+  if(s.cols.includes("siteQty")){colHeaders.push("Site↔Eng");colKeys.push("_siteDiff");}
+
+  const rows=[colHeaders];
+  boq.items.forEach((it,idx)=>{
+    const row=[];
+    colKeys.forEach(k=>{
+      if(k==="#")            row.push(idx+1);
+      else if(k==="_engDiff") row.push((it.engQty||0)-(it.planQty||0));
+      else if(k==="_qsDiff")  row.push((it.qsQty||0)-(it.engQty||0));
+      else if(k==="_siteDiff")row.push((it.siteQty||0)-(it.engQty||0));
+      else row.push(it[k]??0);
+    });
+    rows.push(row);
+  });
+  // Totals row
+  const totRow=["","","","Totals",""];
+  s.cols.forEach(k=>totRow.push(boq.items.reduce((s,i)=>s+(i[k]||0),0)));
+  if(s.cols.includes("engQty")) totRow.push("");
+  if(s.cols.includes("qsQty"))  totRow.push("");
+  if(s.cols.includes("siteQty"))totRow.push("");
+  rows.push([]);rows.push(totRow);
+
+  const csv=rows.map(r=>r.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download=`${boq.boqId}-${s.filename}.csv`;
+  a.click();
+}
+
+// ─── Time-with-team indicator ─────────────────────────────────────────────────
+function TimeWithTeam({boq}){
+  const statusToTeam={
+    with_engineering:"Engineering Team",
+    with_qs:"Quantity Survey Team",
+    with_site:"Project Team",
+  };
+  const teamName=statusToTeam[boq.status];
+  if(!teamName) return null;
+  // Find the log entry that moved it to the current status
+  const log=boq.activityLog||[];
+  // The transition event is the latest log entry
+  const lastEntry=log[log.length-1];
+  if(!lastEntry) return null;
+  const since=lastEntry.time;
+  const elapsed=Date.now()-since;
+  const mins=Math.floor(elapsed/60000);
+  const hrs=Math.floor(elapsed/3600000);
+  const days=Math.floor(elapsed/86400000);
+  let timeStr, urgency="normal";
+  if(mins<60)       timeStr=`${mins}m`;
+  else if(hrs<24)   timeStr=`${hrs}h ${mins%60}m`;
+  else              timeStr=`${days}d ${hrs%24}h`;
+  if(days>=7)       urgency="critical";
+  else if(days>=3)  urgency="warning";
+  const colors={normal:"var(--green)",warning:"var(--amber)",critical:"var(--red)"};
+  const bgs={normal:"#052e16",warning:"#2a1a00",critical:"#3f0000"};
+  const c=colors[urgency], bg=bgs[urgency];
+  return(
+    <div style={{display:"inline-flex",alignItems:"center",gap:6,background:bg,border:`1px solid ${c}40`,
+      borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:600,color:c}}>
+      <span style={{fontSize:14}}>⏱</span>
+      <span>With {teamName} for <strong>{timeStr}</strong></span>
+    </div>
+  );
+}
+
 function BOQCreator({onSave,user}){
+  // Single active sheet's items (for the old single-sheet path)
   const [items,setItems]=useState([]);
   const [ps,setPs]=useState(null);
   const [pm,setPm]=useState("");
   const [drag,setDrag]=useState(false);
   const [done,setDone]=useState(false);
-  const [srcFile,setSrcFile]=useState(null); // {name, size, dataUrl}
+  const [srcFile,setSrcFile]=useState(null);
   const fref=useRef(null);
   const lastRowRef=useRef(null);
+  // ── Multi-sheet state ──────────────────────────────────────────────────────
+  const [allSheets,setAllSheets]=useState([]); // [{sheetName, items}]
+  const [selSheets,setSelSheets]=useState(new Set()); // selected sheet names
+  const [activeSheet,setActiveSheet]=useState(null); // currently viewed sheet name
+  const isMulti=allSheets.length>1;
 
   const addRow=()=>{
     setItems(p=>[...p,{id:Date.now(),lineItemId:"",label:"",name:"",unit:"",planQty:0,engQty:0,qsQty:0,siteQty:0}]);
@@ -849,42 +946,76 @@ function BOQCreator({onSave,user}){
       try{
         const arrayBuf=e.target.result;
         const wb=XLSX.read(new Uint8Array(arrayBuf),{type:"array",cellText:true,cellDates:true});
-        const parsed=parseSheetToItems(wb);
-        if(parsed.length===0){
+        const sheets=parseAllSheets(wb);
+        const validSheets=sheets.filter(s=>s.items.length>0);
+        if(validSheets.length===0){
           const rs=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:"",raw:false});
           const prev=rs.slice(0,4).map(r=>r.filter(c=>String(c).trim()).slice(0,5).join("|")).filter(Boolean).join(" → ");
-          setPs("error");setPm(`No items found. Preview: [${prev||"empty"}]`);return;
+          setPs("error");setPm(`No items found in any sheet. Preview: [${prev||"empty"}]`);return;
         }
-        // Convert ArrayBuffer → base64 dataUrl directly (same bytes already in memory)
         const bytes=new Uint8Array(arrayBuf);
         let binary="";
         for(let i=0;i<bytes.byteLength;i++)binary+=String.fromCharCode(bytes[i]);
         const b64=btoa(binary);
-        const mime=file.name.toLowerCase().endsWith(".csv")?"text/csv":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        const mime=n.endsWith(".csv")?"text/csv":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         setSrcFile({name:file.name,size:file.size,dataUrl:`data:${mime};base64,${b64}`,type:mime});
-        // Build a summary of which fields were detected
-        const detected=[];
-        if(parsed.some(i=>i.lineItemId)) detected.push("Line Item ID");
-        if(parsed.some(i=>i.label))      detected.push("Label");
-        detected.push("Description");
-        if(parsed.some(i=>i.unit))       detected.push("Unit");
-        if(parsed.some(i=>i.planQty>0))  detected.push("Qty");
-        const missing=["Line Item ID","Label","Unit"].filter(f=>!detected.includes(f));
-        const note=missing.length?` (missing: ${missing.join(", ")} — columns hidden)`:"";
-        setItems(parsed);setPs("done");setPm(`✅ Extracted ${parsed.length} items · Detected: ${detected.join(", ")}${note}`);
+
+        if(validSheets.length===1){
+          // Single-sheet path — same as before
+          const parsed=validSheets[0].items;
+          const detected=[];
+          if(parsed.some(i=>i.lineItemId)) detected.push("Line Item ID");
+          if(parsed.some(i=>i.label))      detected.push("Label");
+          detected.push("Description");
+          if(parsed.some(i=>i.unit))       detected.push("Unit");
+          if(parsed.some(i=>i.planQty>0))  detected.push("Qty");
+          const missing=["Line Item ID","Label","Unit"].filter(f=>!detected.includes(f));
+          const note=missing.length?` (missing: ${missing.join(", ")} — columns hidden)`:"";
+          setItems(parsed);
+          setAllSheets([]);setSelSheets(new Set());setActiveSheet(null);
+          setPs("done");setPm(`✅ Extracted ${parsed.length} items from "${validSheets[0].sheetName}" · Detected: ${detected.join(", ")}${note}`);
+        } else {
+          // Multi-sheet path — let user select sheets
+          setAllSheets(validSheets);
+          const allNames=new Set(validSheets.map(s=>s.sheetName));
+          setSelSheets(allNames); // default: all selected
+          setActiveSheet(validSheets[0].sheetName);
+          setItems([]); // items come from sheet selection
+          setPs("sheets");
+          setPm(`📋 Found ${validSheets.length} sheets with data — select which to include below`);
+        }
       }catch(err){setPs("error");setPm(`Error: ${err.message}`);}
     };
     reader.onerror=()=>{setPs("error");setPm("Could not read file.");};
     reader.readAsArrayBuffer(file);
   };
 
+  // Active sheet's items for preview
+  const activeSheetItems=activeSheet
+    ?allSheets.find(s=>s.sheetName===activeSheet)?.items||[]
+    :items;
+
+  // All selected sheets' items merged (for submit)
+  const mergedItems=isMulti
+    ?allSheets.filter(s=>selSheets.has(s.sheetName)).flatMap(s=>s.items)
+    :items;
+
+  const toggleSheet=name=>{
+    setSelSheets(p=>{
+      const n=new Set(p);
+      if(n.has(name)) n.delete(name); else n.add(name);
+      return n;
+    });
+  };
+
   const submit=asDraft=>{
+    const finalItems=(isMulti?mergedItems:items).filter(i=>i.name);
     const defaultAtts=srcFile?[{id:Date.now(),name:srcFile.name,size:srcFile.size,type:srcFile.type,dataUrl:srcFile.dataUrl,uploadedBy:user.name,uploadedAt:Date.now(),note:"Source BOQ sheet (auto-attached)"}]:[];
-    const boq={id:Date.now(),boqId:genId(),createdBy:user.id,createdAt:Date.now(),status:asDraft?"draft":"with_engineering",items:items.filter(i=>i.name),attachments:defaultAtts,activityLog:[{time:Date.now(),user:user.name,action:asDraft?"Saved as Draft":"Submitted to Engineering Team"}]};
+    const boq={id:Date.now(),boqId:genId(),createdBy:user.id,createdAt:Date.now(),status:asDraft?"draft":"with_engineering",items:finalItems,attachments:defaultAtts,activityLog:[{time:Date.now(),user:user.name,action:asDraft?"Saved as Draft":"Submitted to Engineering Team"}]};
     onSave(boq);setDone(true);
   };
 
-  if(done) return(<div className="fade-in" style={{textAlign:"center",padding:"80px 0"}}><div style={{fontSize:60,marginBottom:14}}>✅</div><h2 style={{fontFamily:"Sora",fontSize:22,marginBottom:8}}>Submitted to Engineering!</h2><p style={{color:"var(--muted)"}}>Engineering → QS → Site Team will review in sequence.</p></div>);
+  if(done) return(<div className="fade-in" style={{textAlign:"center",padding:"80px 0"}}><div style={{fontSize:60,marginBottom:14}}>✅</div><h2 style={{fontFamily:"Sora",fontSize:22,marginBottom:8}}>Submitted to Engineering!</h2><p style={{color:"var(--muted)"}}>Engineering → QS → Project Team will review in sequence.</p></div>);
 
   const ub=drag?"#052e16":"#1a2235";
   const uc=drag?"var(--green)":ps==="error"?"var(--red)":"var(--accent)";
@@ -902,20 +1033,62 @@ function BOQCreator({onSave,user}){
             <div style={{display:"inline-block",background:"var(--accent)",color:"#fff",padding:"6px 18px",borderRadius:8,fontSize:13,fontWeight:600}}>Browse Files</div></>}
       </div>
       {pm&&<div style={{marginBottom:12,padding:"8px 14px",borderRadius:9,fontSize:13,background:ps==="done"?"#052e16":ps==="error"?"#3f0000":"var(--s2)",color:ps==="done"?"var(--green)":ps==="error"?"var(--red)":"var(--muted)",border:`1px solid ${ps==="done"?"#10b98140":ps==="error"?"#ef444440":"var(--border)"}`}}>{pm}</div>}
+      {/* ── Multi-sheet selector ── */}
+      {isMulti&&(
+        <Card style={{marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <h3 style={{fontFamily:"Sora",fontSize:16}}>📑 Sheets Found</h3>
+            <div style={{display:"flex",gap:6}}>
+              <Btn variant="ghost" small onClick={()=>setSelSheets(new Set(allSheets.map(s=>s.sheetName)))}>Select All</Btn>
+              <Btn variant="ghost" small onClick={()=>setSelSheets(new Set())}>Deselect All</Btn>
+            </div>
+          </div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:16}}>
+            {allSheets.map(s=>{
+              const sel=selSheets.has(s.sheetName);
+              const active=activeSheet===s.sheetName;
+              return(
+                <div key={s.sheetName} style={{border:`1px solid ${active?"var(--accent)":sel?"var(--green)":"var(--border)"}`,borderRadius:10,padding:"8px 14px",background:active?"#1e3a5f":sel?"#052e16":"var(--s2)",cursor:"pointer",transition:"all .15s",minWidth:160}}
+                  onClick={()=>setActiveSheet(s.sheetName)}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:4}}>
+                    <span style={{fontWeight:700,fontSize:13,color:active?"var(--accent)":sel?"var(--green)":"var(--text)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:160}}>{s.sheetName}</span>
+                    <button onClick={e=>{e.stopPropagation();toggleSheet(s.sheetName);}}
+                      style={{flexShrink:0,width:20,height:20,borderRadius:4,border:`1px solid ${sel?"var(--green)":"var(--border)"}`,background:sel?"var(--green)":"transparent",color:sel?"#fff":"var(--muted)",cursor:"pointer",fontSize:12,lineHeight:"18px",textAlign:"center",padding:0}}>
+                      {sel?"✓":""}
+                    </button>
+                  </div>
+                  <div style={{fontSize:11,color:"var(--muted)"}}>{s.items.length} items</div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{fontSize:12,color:"var(--muted)",padding:"6px 12px",background:"var(--s3)",borderRadius:8,border:"1px solid var(--border)"}}>
+            📌 Click a sheet card to preview its items below · Use the checkbox to include/exclude from submission · <strong style={{color:"var(--text)"}}>{selSheets.size} of {allSheets.length} sheets selected</strong>
+          </div>
+        </Card>
+      )}
+
       <Card>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-          <h3 style={{fontFamily:"Sora",fontSize:16}}>📦 BOQ Items</h3>
+          <h3 style={{fontFamily:"Sora",fontSize:16}}>
+            📦 {isMulti?`Sheet: "${activeSheet||""}"`:"BOQ Items"}
+          </h3>
           <div style={{display:"flex",gap:8}}>
-            {items.length>0&&<Btn variant="ghost" small onClick={()=>{setItems([]);setPs(null);setPm("");}}>Clear</Btn>}
-            <Btn variant="outline" small onClick={addRow}>+ Add Row</Btn>
+            {!isMulti&&items.length>0&&<Btn variant="ghost" small onClick={()=>{setItems([]);setAllSheets([]);setPs(null);setPm("");}}>Clear</Btn>}
+            {!isMulti&&<Btn variant="outline" small onClick={addRow}>+ Add Row</Btn>}
           </div>
         </div>
-        <ItemsTable items={items} role="planning" editField="planQty" onUpdateItem={upd} stagesVisible={{eng:false,qs:false,site:false}} lastRowRef={lastRowRef}/>
+        <ItemsTable items={isMulti?activeSheetItems:items} role="planning" editField={isMulti?null:"planQty"} onUpdateItem={isMulti?()=>{}:upd} stagesVisible={{eng:false,qs:false,site:false}} lastRowRef={lastRowRef}/>
+        {isMulti&&(
+          <div style={{marginTop:10,padding:"6px 12px",background:"var(--s3)",borderRadius:8,fontSize:12,color:"var(--muted)",border:"1px solid var(--border)"}}>
+            👁 Preview only — quantities from all selected sheets will be merged on submit
+          </div>
+        )}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,paddingTop:14,borderTop:"1px solid var(--border)"}}>
-          <div style={{color:"var(--muted)",fontSize:13}}>Items: <strong style={{color:"var(--text)"}}>{items.filter(i=>i.name).length}</strong> · Total Qty: <strong style={{color:"var(--text)"}}>{items.reduce((s,i)=>s+(i.planQty||0),0).toLocaleString()}</strong></div>
+          <div style={{color:"var(--muted)",fontSize:13}}>Items: <strong style={{color:"var(--text)"}}>{(isMulti?mergedItems:items).filter(i=>i.name).length}</strong> · Total Qty: <strong style={{color:"var(--text)"}}>{(isMulti?mergedItems:items).reduce((s,i)=>s+(i.planQty||0),0).toLocaleString()}</strong></div>
           <div style={{display:"flex",gap:10}}>
             <Btn variant="ghost" onClick={()=>submit(true)}>Save Draft</Btn>
-            <Btn variant="success" onClick={()=>submit(false)} disabled={items.filter(i=>i.name).length===0}>Submit to Engineering →</Btn>
+            <Btn variant="success" onClick={()=>submit(false)} disabled={(isMulti?mergedItems:items).filter(i=>i.name).length===0}>Submit to Engineering →</Btn>
           </div>
         </div>
       </Card>
@@ -935,10 +1108,10 @@ function BOQList({boqs,user,onSelect,filterStatus,users=[]}){
       <Card>
         <div style={{marginBottom:14}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search BOQ ID…" style={{width:260}}/></div>
         {list.length===0?<div style={{textAlign:"center",padding:"36px 0",color:"var(--muted)"}}><div style={{fontSize:36,marginBottom:10}}>📭</div>No BOQs found</div>
-          :<table><thead><tr><th>BOQ ID</th><th>Created By</th><th>Date</th><th>Items</th><th>Status</th><th/></tr></thead>
+          :<table><thead><tr><th>BOQ ID</th><th>Created By</th><th>Date</th><th>Items</th><th>Status</th><th>Time with Team</th><th/></tr></thead>
             <tbody>{list.slice().reverse().map(b=>{
               const c=users.find(u=>u.id===b.createdBy);
-              return(<tr key={b.id}><td style={{fontFamily:"monospace",fontSize:12}}>{b.boqId}</td><td>{c?.name||"—"}</td><td style={{color:"var(--muted)"}}>{new Date(b.createdAt).toLocaleDateString()}</td><td>{b.items.length}</td><td><Badge status={b.status}/></td><td><Btn small variant="outline" onClick={()=>onSelect(b)}>View →</Btn></td></tr>);
+              return(<tr key={b.id}><td style={{fontFamily:"monospace",fontSize:12}}>{b.boqId}</td><td>{c?.name||"—"}</td><td style={{color:"var(--muted)"}}>{new Date(b.createdAt).toLocaleDateString()}</td><td>{b.items.length}</td><td><Badge status={b.status}/></td><td><TimeWithTeam boq={b}/></td><td><Btn small variant="outline" onClick={()=>onSelect(b)}>View →</Btn></td></tr>);
             })}</tbody></table>}
       </Card>
     </div>
@@ -1089,7 +1262,7 @@ function PlanningView({boq,onBack,onUpdateBoq}){
 
       {hasEng&&<AlertBanner icon="⚙️" title="Engineering Team has reviewed this BOQ" desc="Engineering quantities shown below. Your planning quantities are permanently locked." color="var(--eng)" bg="#0a2a1a"/>}
       {hasQS&&<AlertBanner icon="📏" title="Quantity Survey Team has reviewed this BOQ" desc="QS quantities and comparisons shown below." color="var(--qs)" bg="#2a1a00"/>}
-      {hasSite&&<AlertBanner icon="🏗️" title="Site Team has reviewed this BOQ" desc="Site quantities are compared against Engineering quantities below." color="var(--site)" bg="#2a0010"/>}
+      {hasSite&&<AlertBanner icon="🏗️" title="Project Team has reviewed this BOQ" desc="Project Team quantities are compared against Engineering quantities below." color="var(--site)" bg="#2a0010"/>}
 
       <Card style={{marginBottom:16}}>
         <AttachmentsPanel attachments={boq.attachments||[]} onAdd={addAttachment} canAdd={true}/>
@@ -1126,13 +1299,16 @@ function EngineeringView({boq,onUpdate,onBack}){
           <Btn variant="ghost" small onClick={onBack}>← Back</Btn>
           <div>
             <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700}}>{boq.boqId}</h1>
-            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center"}}><Badge status={boq.status}/></div>
+            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center",flexWrap:"wrap"}}><Badge status={boq.status}/><TimeWithTeam boq={boq}/></div>
           </div>
         </div>
-        {!locked
-          ? <Btn variant="success" onClick={submit}>Submit to Quantity Survey →</Btn>
-          : <div style={{fontSize:12,color:"var(--green)",background:"#052e16",padding:"6px 14px",borderRadius:8,border:"1px solid #10b98140"}}>🔒 Submitted — with QS Team</div>
-        }
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          <Btn variant="ghost" small onClick={()=>exportBoqExcel(boq,"engineering")}>⬇ Download Sheet</Btn>
+          {!locked
+            ? <Btn variant="success" onClick={submit}>Submit to Quantity Survey →</Btn>
+            : <div style={{fontSize:12,color:"var(--green)",background:"#052e16",padding:"6px 14px",borderRadius:8,border:"1px solid #10b98140"}}>🔒 Submitted — with QS Team</div>
+          }
+        </div>
       </div>
 
       <Card style={{marginBottom:16}}>
@@ -1162,7 +1338,7 @@ function QSView({boq,onUpdate,onBack}){
   const submit=()=>onUpdate({
     ...boq, items, attachments:atts,
     status:"with_site",
-    activityLog:[...(boq.activityLog||[]),{time:Date.now(),user:"Quantity Survey Team",action:`QS quantities submitted — forwarded to Site Team`}]
+    activityLog:[...(boq.activityLog||[]),{time:Date.now(),user:"Quantity Survey Team",action:`QS quantities submitted — forwarded to Project Team`}]
   },"qs_submitted");
 
   return(
@@ -1173,13 +1349,16 @@ function QSView({boq,onUpdate,onBack}){
           <Btn variant="ghost" small onClick={onBack}>← Back</Btn>
           <div>
             <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700}}>{boq.boqId}</h1>
-            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center"}}><Badge status={boq.status}/></div>
+            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center",flexWrap:"wrap"}}><Badge status={boq.status}/><TimeWithTeam boq={boq}/></div>
           </div>
         </div>
-        {!locked
-          ? <Btn variant="amber" onClick={submit}>Submit to Site Team →</Btn>
-          : <div style={{fontSize:12,color:"var(--amber)",background:"#2a1a00",padding:"6px 14px",borderRadius:8,border:"1px solid #f59e0b40"}}>🔒 Submitted — with Site Team</div>
-        }
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          <Btn variant="ghost" small onClick={()=>exportBoqExcel(boq,"qs")}>⬇ Download Sheet</Btn>
+          {!locked
+            ? <Btn variant="amber" onClick={submit}>Submit to Project Team →</Btn>
+            : <div style={{fontSize:12,color:"var(--amber)",background:"#2a1a00",padding:"6px 14px",borderRadius:8,border:"1px solid #f59e0b40"}}>🔒 Submitted — with Project Team</div>
+          }
+        </div>
       </div>
 
       <AlertBanner icon="⚙️" title="Engineering Quantities are locked" desc="Enter your QS quantities below to compare with Engineering." color="var(--eng)" bg="#0a2a1a"/>
@@ -1208,22 +1387,12 @@ function SiteView({boq,onUpdate,onBack,users=[]}){
   const locked=boq.status!=="with_site";
   const upd=(id,f,v)=>{ if(f!=="siteQty") return; setItems(p=>p.map(i=>i.id===id?{...i,siteQty:v}:i)); };
 
-  const exportCSV=()=>{
-    const creator=users.find(u=>u.id===boq.createdBy);
-    const rows=[
-      [`BOQ: ${boq.boqId}`,`Date: ${new Date(boq.createdAt).toLocaleDateString()}`,`By: ${creator?.name}`],[],
-      ["#","Line Item ID","Label","Description","Unit","Plan Qty","Eng Qty","Eng-Plan","QS Qty","QS-Eng","Site Qty","Site-Eng"],
-      ...items.map((it,x)=>[x+1,it.lineItemId||"",it.label||"",it.name,it.unit||"",it.planQty||0,it.engQty||0,(it.engQty||0)-(it.planQty||0),it.qsQty||0,(it.qsQty||0)-(it.engQty||0),it.siteQty||0,(it.siteQty||0)-(it.engQty||0)]),
-      [],["","","","","Totals",items.reduce((s,i)=>s+(i.planQty||0),0),items.reduce((s,i)=>s+(i.engQty||0),0),"",items.reduce((s,i)=>s+(i.qsQty||0),0),"",items.reduce((s,i)=>s+(i.siteQty||0),0),""],
-    ];
-    const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
-    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=`${boq.boqId}-FULL.csv`;a.click();
-  };
+
 
   const submit=()=>onUpdate({
     ...boq, items, attachments:atts,
     status:"completed",
-    activityLog:[...(boq.activityLog||[]),{time:Date.now(),user:"Site Team",action:"Site quantities submitted — BOQ Completed"}]
+    activityLog:[...(boq.activityLog||[]),{time:Date.now(),user:"Project Team",action:"Site quantities submitted — BOQ Completed"}]
   },"site_submitted");
 
   return(
@@ -1234,11 +1403,11 @@ function SiteView({boq,onUpdate,onBack,users=[]}){
           <Btn variant="ghost" small onClick={onBack}>← Back</Btn>
           <div>
             <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700}}>{boq.boqId}</h1>
-            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center"}}><Badge status={boq.status}/></div>
+            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center",flexWrap:"wrap"}}><Badge status={boq.status}/><TimeWithTeam boq={boq}/></div>
           </div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-          <Btn variant="outline" small onClick={exportCSV}>⬇ Export CSV</Btn>
+          <Btn variant="outline" small onClick={()=>exportBoqExcel({...boq,items},"site")}>⬇ Download Sheet</Btn>
           {!locked
             ? <Btn variant="rose" onClick={submit}>✅ Submit & Complete BOQ</Btn>
             : <div style={{fontSize:12,color:"var(--green)",background:"#052e16",padding:"6px 14px",borderRadius:8,border:"1px solid #10b98140"}}>✅ Completed</div>
@@ -1262,7 +1431,7 @@ function SiteView({boq,onUpdate,onBack,users=[]}){
         <TotalBar items={items} showEng={true} showQS={true} showSite={true}/>
       </Card>
       <ActivityLog log={boq.activityLog}/>
-      {locked&&<div style={{textAlign:"center",padding:12,background:"#052e16",borderRadius:10,border:"1px solid #10b98140",color:"var(--green)",marginTop:14}}>✅ BOQ fully completed by Site Team</div>}
+      {locked&&<div style={{textAlign:"center",padding:12,background:"#052e16",borderRadius:10,border:"1px solid #10b98140",color:"var(--green)",marginTop:14}}>✅ BOQ fully completed by Project Team</div>}
     </div>
   );
 }
@@ -3751,7 +3920,7 @@ function Reports({boqs,user,onSelect,users=[]}){
     { key:"draft",           label:"1. Draft",                   icon:"📝", color:"#64748b", desc:"Created by Planning, not yet submitted" },
     { key:"with_engineering",label:"2. Engineering Review",      icon:"⚙️", color:"#10b981", desc:"Awaiting Engineering quantities" },
     { key:"with_qs",         label:"3. Quantity Survey Review",  icon:"📏", color:"#f59e0b", desc:"Awaiting QS quantities" },
-    { key:"with_site",       label:"4. Site Team Review",        icon:"🏗️", color:"#f43f5e", desc:"Awaiting Site quantities" },
+    { key:"with_site",       label:"4. Project Team Review",        icon:"🏗️", color:"#f43f5e", desc:"Awaiting Site quantities" },
     { key:"completed",       label:"5. Completed",               icon:"✅", color:"#3b82f6", desc:"All teams have reviewed and submitted" },
   ];
 
@@ -3836,10 +4005,10 @@ function Reports({boqs,user,onSelect,users=[]}){
 
 // ─── Admin: User Form Modal ────────────────────────────────────────────────────
 const DEPT_ROLES = [
-  { role:"planning",    label:"Planning Team",        color:"#8b5cf6", icon:"📐" },
+  { role:"planning",    label:"Project Control",        color:"#8b5cf6", icon:"📐" },
   { role:"engineering", label:"Engineering Team",     color:"#10b981", icon:"⚙️" },
   { role:"qs",          label:"Quantity Survey Team", color:"#f59e0b", icon:"📏" },
-  { role:"site",        label:"Site Team",            color:"#f43f5e", icon:"🏗️" },
+  { role:"site",        label:"Project Team",            color:"#f43f5e", icon:"🏗️" },
 ];
 
 const ALL_PAGES = [
@@ -4784,7 +4953,7 @@ export default function App(){
         {id:2,lineItemId:"2422853",label:"1.1.2",name:"Earthing Truck (Busbar Side) with single phase PT and audio-visual alarm, safety interlock features",unit:"No's",planQty:2,engQty:0,qsQty:0,siteQty:0},
         {id:3,lineItemId:"2422882",label:"1.3.1",name:"3C X 300Sq.mm XLPE insulated Al. Ar. - Earthed type, FRLS HT Cable 11kV grade as per IS-7098 Part-2",unit:"Mtrs.",planQty:45,engQty:0,qsQty:0,siteQty:0},
       ],
-      activityLog:[{time:Date.now()-86400000*4,user:"Ananya Sharma",action:"Submitted to Engineering Team"}],
+      activityLog:[{time:Date.now()-86400000*4,user:"user_1",action:"Submitted to Engineering Team"}],
     },
     {
       id:2,boqId:"BOQ-DEMO02",createdBy:1,createdAt:Date.now()-86400000*3,
@@ -4794,7 +4963,7 @@ export default function App(){
         {id:2,lineItemId:"2423002",label:"5.1.2",name:"End Termination for above",unit:"Sets",planQty:64,engQty:60,qsQty:0,siteQty:0},
       ],
       activityLog:[
-        {time:Date.now()-86400000*3,user:"Ananya Sharma",action:"Submitted to Engineering Team"},
+        {time:Date.now()-86400000*3,user:"user_1",action:"Submitted to Engineering Team"},
         {time:Date.now()-86400000*2,user:"Engineering Team",action:"Engineering quantities submitted — forwarded to Quantity Survey Team"},
       ],
     },
@@ -4807,9 +4976,9 @@ export default function App(){
         {id:3,lineItemId:"2422934",label:"2.3",name:"UTILITY PANEL IP 54 AS PER SINGLE LINE DIAGRAM",unit:"No's",planQty:1,engQty:1,qsQty:1,siteQty:0},
       ],
       activityLog:[
-        {time:Date.now()-86400000*2,user:"Ananya Sharma",action:"Submitted to Engineering Team"},
+        {time:Date.now()-86400000*2,user:"user_1",action:"Submitted to Engineering Team"},
         {time:Date.now()-86400000*1.5,user:"Engineering Team",action:"Engineering quantities submitted — forwarded to Quantity Survey Team"},
-        {time:Date.now()-86400000,user:"Quantity Survey Team",action:"QS quantities submitted — forwarded to Site Team"},
+        {time:Date.now()-86400000,user:"Quantity Survey Team",action:"QS quantities submitted — forwarded to Project Team"},
       ],
     },
   ]);
@@ -4836,14 +5005,14 @@ export default function App(){
     }
     if(event==="qs_submitted"){
       const diff=updated.items.filter(i=>i.qsQty!==i.engQty).length;
-      push(planUser.id,{icon:"📏",read:false,time:Date.now(),message:`QS Team reviewed ${updated.boqId}. ${diff} item${diff!==1?"s differ":" differs"} between QS and Engineering. Forwarded to Site Team.`});
+      push(planUser.id,{icon:"📏",read:false,time:Date.now(),message:`QS Team reviewed ${updated.boqId}. ${diff} item${diff!==1?"s differ":" differs"} between QS and Engineering. Forwarded to Project Team.`});
       push(siteUser.id,{icon:"🏗️",read:false,time:Date.now(),message:`${updated.boqId} assigned to you. QS quantities are complete — please enter Site quantities.`});
     }
     if(event==="site_submitted"){
       const diff=updated.items.filter(i=>i.siteQty!==i.engQty).length;
-      push(planUser.id,{icon:"🏗️",read:false,time:Date.now(),message:`Site Team completed ${updated.boqId}. ${diff} item${diff!==1?"s differ":" differs"} between Site and Engineering. BOQ is now fully Completed.`});
-      push(engUser.id,{icon:"✅",read:false,time:Date.now(),message:`${updated.boqId} has been completed by the Site Team.`});
-      push(qsUser.id,{icon:"✅",read:false,time:Date.now(),message:`${updated.boqId} has been completed by the Site Team.`});
+      push(planUser.id,{icon:"🏗️",read:false,time:Date.now(),message:`Project Team completed ${updated.boqId}. ${diff} item${diff!==1?"s differ":" differs"} between Site and Engineering. BOQ is now fully Completed.`});
+      push(engUser.id,{icon:"✅",read:false,time:Date.now(),message:`${updated.boqId} has been completed by the Project Team.`});
+      push(qsUser.id,{icon:"✅",read:false,time:Date.now(),message:`${updated.boqId} has been completed by the Project Team.`});
     }
   };
 
@@ -4868,7 +5037,7 @@ export default function App(){
       if(page==="reports"&&canAccess("reports"))     return <Reports boqs={boqs} user={user} onSelect={b=>setSel(b)} users={users}/>;
     }
     if(user.role==="engineering"){
-      if(page==="dashboard"&&canAccess("dashboard")) return <Dashboard user={user} boqs={boqs} setPage={setPage} notifications={myNotifs} pendingStatus="with_engineering" pendingLabel="Enter engineering quantities for Planning BOQs"/>;
+      if(page==="dashboard"&&canAccess("dashboard")) return <Dashboard user={user} boqs={boqs} setPage={setPage} notifications={myNotifs} pendingStatus="with_engineering" pendingLabel="Enter engineering quantities for given line items"/>;
       if(page==="pending"&&canAccess("pending"))     return <BOQList boqs={boqs} user={user} filterStatus="with_engineering" onSelect={b=>setSel(b)} users={users}/>;
       if(page==="my-boqs"&&canAccess("my-boqs"))     return <BOQList boqs={boqs} user={user} onSelect={b=>setSel(b)} users={users}/>;
       if(page==="search")                            return <GlobalSearch boqs={boqs} users={users} onSelectBoq={b=>{setSel(b);setPage("dashboard");}}/>;
