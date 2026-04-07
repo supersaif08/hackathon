@@ -2861,8 +2861,6 @@ function ProcurementDashboard(){
         const maxD=new Date(Math.max(...allTs.map(d=>d.getTime())));
         const minStr=minD.toISOString().slice(0,10);
         const maxStr=maxD.toISOString().slice(0,10);
-        setDateFrom(minStr);
-        setDateTo(maxStr);
         setDataRange({min:minStr,max:maxStr});
       }
     }catch(e){alert("Error parsing file: "+e.message);}
@@ -2919,13 +2917,11 @@ function ProcurementDashboard(){
       ?procData.prs
       :procData.prs.filter(d=>activeProjSet.has(d.projectName));
     const allTs=prs.map(d=>d.prDateTs).filter(Boolean);
-    if(!allTs.length)return;
+    if(!allTs.length){ setDataRange(null); return; }
     const minD=new Date(Math.min(...allTs.map(d=>d.getTime())));
     const maxD=new Date(Math.max(...allTs.map(d=>d.getTime())));
     const minStr=minD.toISOString().slice(0,10);
     const maxStr=maxD.toISOString().slice(0,10);
-    setDateFrom(minStr);
-    setDateTo(maxStr);
     setDataRange({min:minStr,max:maxStr});
   },[selProjects,selCCS,procData]);
 
