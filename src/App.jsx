@@ -4122,7 +4122,7 @@ function Reports({boqs,user,onSelect,users=[]}){
 }
 
 
-// ─── Admin: User Form Modal ────────────────────────────────────────────────────
+// ─── User Form Modal ─────────────────────────────────────────────────────────
 const DEPT_ROLES = [
   { role:"planning",    label:"Project Control",        color:"#8b5cf6", icon:"📐" },
   { role:"engineering", label:"Engineering Team",     color:"#10b981", icon:"⚙️" },
@@ -4314,7 +4314,6 @@ function GlobalSearch({boqs,users,onSelectBoq}){
   );
 }
 
-// ─── Admin: Dashboard ──────────────────────────────────────────────────────────
 // ─── QUOTATION COMPARISON SYSTEM ─────────────────────────────────────────────
 
 const RFQ_STORAGE_KEY="rfq_data_v1";
