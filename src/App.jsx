@@ -632,6 +632,34 @@ function ActivityLog({log}){
   );
 }
 
+// ─── Sheet Tabs ───────────────────────────────────────────────────────────────
+// Shown inside BOQ detail views when the BOQ has multiple sheets.
+// If only one sheet (or no sheets), renders nothing — UI looks identical to before.
+function SheetTabs({sheets, activeSheet, setActiveSheet, roleColor}){
+  if(!sheets||sheets.length<=1) return null;
+  return(
+    <div style={{display:"flex",gap:2,borderBottom:"1px solid var(--border)",marginBottom:16,overflowX:"auto"}}>
+      {sheets.map(s=>{
+        const isAct=activeSheet===s.sheetName;
+        return(
+          <button key={s.sheetName} onClick={()=>setActiveSheet(s.sheetName)}
+            style={{padding:"8px 16px",border:"none",background:"transparent",
+              color:isAct?(roleColor||"var(--accent)"):"var(--muted)",
+              fontSize:12,fontWeight:isAct?700:500,cursor:"pointer",whiteSpace:"nowrap",
+              borderBottom:isAct?`2px solid ${roleColor||"var(--accent)"}`:  "2px solid transparent",
+              transition:"all .15s",flexShrink:0}}>
+            📋 {s.sheetName}
+            <span style={{marginLeft:6,fontSize:10,background:"var(--s2)",border:"1px solid var(--border)",
+              borderRadius:10,padding:"1px 7px",fontFamily:"monospace",color:"var(--muted)"}}>
+              {s.items.length}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Alert Banner ─────────────────────────────────────────────────────────────
 function AlertBanner({icon,title,desc,color,bg}){
   return(
@@ -1009,9 +1037,26 @@ function BOQCreator({onSave,user}){
   };
 
   const submit=asDraft=>{
-    const finalItems=(isMulti?mergedItems:items).filter(i=>i.name);
     const defaultAtts=srcFile?[{id:Date.now(),name:srcFile.name,size:srcFile.size,type:srcFile.type,dataUrl:srcFile.dataUrl,uploadedBy:user.name,uploadedAt:Date.now(),note:"Source BOQ sheet (auto-attached)"}]:[];
-    const boq={id:Date.now(),boqId:genId(),createdBy:user.id,createdAt:Date.now(),status:asDraft?"draft":"with_engineering",items:finalItems,attachments:defaultAtts,activityLog:[{time:Date.now(),user:user.name,action:asDraft?"Saved as Draft":"Submitted to Engineering Team"}]};
+    let finalSheets, flatItems;
+    if(isMulti){
+      // Keep each sheet separate; also build flat items for compat (counts, reports)
+      finalSheets=allSheets
+        .filter(s=>selSheets.has(s.sheetName))
+        .map(s=>({sheetName:s.sheetName,items:s.items.filter(i=>i.name)}));
+      flatItems=finalSheets.flatMap(s=>s.items);
+    } else {
+      finalSheets=null; // no sheet structure for manual/single-sheet
+      flatItems=items.filter(i=>i.name);
+    }
+    const boq={
+      id:Date.now(),boqId:genId(),createdBy:user.id,createdAt:Date.now(),
+      status:asDraft?"draft":"with_engineering",
+      sheets:finalSheets,       // null for single-sheet; array for multi-sheet
+      items:flatItems,           // always flat — used for counts, reports, compat
+      attachments:defaultAtts,
+      activityLog:[{time:Date.now(),user:user.name,action:asDraft?"Saved as Draft":"Submitted to Engineering Team"}],
+    };
     onSave(boq);setDone(true);
   };
 
@@ -1081,11 +1126,11 @@ function BOQCreator({onSave,user}){
         <ItemsTable items={isMulti?activeSheetItems:items} role="planning" editField={isMulti?null:"planQty"} onUpdateItem={isMulti?()=>{}:upd} stagesVisible={{eng:false,qs:false,site:false}} lastRowRef={lastRowRef}/>
         {isMulti&&(
           <div style={{marginTop:10,padding:"6px 12px",background:"var(--s3)",borderRadius:8,fontSize:12,color:"var(--muted)",border:"1px solid var(--border)"}}>
-            👁 Preview only — quantities from all selected sheets will be merged on submit
+            👁 Preview only — all selected sheets will be kept as separate tabs inside one BOQ
           </div>
         )}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,paddingTop:14,borderTop:"1px solid var(--border)"}}>
-          <div style={{color:"var(--muted)",fontSize:13}}>Items: <strong style={{color:"var(--text)"}}>{(isMulti?mergedItems:items).filter(i=>i.name).length}</strong> · Total Qty: <strong style={{color:"var(--text)"}}>{(isMulti?mergedItems:items).reduce((s,i)=>s+(i.planQty||0),0).toLocaleString()}</strong></div>
+          <div style={{color:"var(--muted)",fontSize:13}}>Items: <strong style={{color:"var(--text)"}}>{(isMulti?mergedItems:items).filter(i=>i.name).length}</strong> · Total Qty: <strong style={{color:"var(--text)"}}>{(isMulti?mergedItems:items).reduce((s,i)=>s+(i.planQty||0),0).toLocaleString()}</strong>{isMulti&&selSheets.size>1&&<> · <strong style={{color:"var(--accent)"}}>{selSheets.size} sheets</strong> → 1 BOQ</>}</div>
           <div style={{display:"flex",gap:10}}>
             <Btn variant="ghost" onClick={()=>submit(true)}>Save Draft</Btn>
             <Btn variant="success" onClick={()=>submit(false)} disabled={(isMulti?mergedItems:items).filter(i=>i.name).length===0}>Submit to Engineering →</Btn>
@@ -1234,9 +1279,18 @@ function AttachmentsPanel({attachments=[], onAdd, canAdd=false}){
 
 // ─── Planning: View BOQ (all stages, all read-only) ───────────────────────────
 function PlanningView({boq,onBack,onUpdateBoq}){
-  const hasEng=boq.items.some(i=>i.engQty>0);
-  const hasQS=boq.items.some(i=>i.qsQty>0);
-  const hasSite=boq.items.some(i=>i.siteQty>0);
+  const sheets=boq.sheets||null; // null = legacy flat items
+  const [activeSheet,setActiveSheet]=useState(sheets?sheets[0].sheetName:null);
+
+  // Items currently shown in the table
+  const visibleItems=sheets
+    ? (sheets.find(s=>s.sheetName===activeSheet)?.items||[])
+    : boq.items;
+
+  const allItems=boq.items; // always flat — used for stage detection & totals bar
+  const hasEng=allItems.some(i=>i.engQty>0);
+  const hasQS=allItems.some(i=>i.qsQty>0);
+  const hasSite=allItems.some(i=>i.siteQty>0);
 
   const addAttachment = att => {
     const updated = {...boq, attachments:[...(boq.attachments||[]),att]};
@@ -1254,6 +1308,7 @@ function PlanningView({boq,onBack,onUpdateBoq}){
             <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center"}}>
               <Badge status={boq.status}/>
               <span style={{color:"var(--muted)",fontSize:12}}>{new Date(boq.createdAt).toLocaleDateString()}</span>
+              {sheets&&sheets.length>1&&<span style={{fontSize:11,color:"var(--plan)",background:"var(--plan)15",border:"1px solid var(--plan)30",borderRadius:20,padding:"2px 8px"}}>{sheets.length} sheets</span>}
             </div>
           </div>
         </div>
@@ -1269,9 +1324,10 @@ function PlanningView({boq,onBack,onUpdateBoq}){
       </Card>
 
       <Card style={{marginBottom:16}}>
-        <h3 style={{fontFamily:"Sora",fontSize:16,marginBottom:16}}>📦 BOQ Items (Read Only)</h3>
-        <ItemsTable items={boq.items} role="planning" editField={null} onUpdateItem={()=>{}} stagesVisible={{eng:hasEng,qs:hasQS,site:hasSite}}/>
-        <TotalBar items={boq.items} showEng={hasEng} showQS={hasQS} showSite={hasSite}/>
+        <h3 style={{fontFamily:"Sora",fontSize:16,marginBottom:sheets&&sheets.length>1?12:16}}>📦 BOQ Items (Read Only)</h3>
+        <SheetTabs sheets={sheets} activeSheet={activeSheet} setActiveSheet={setActiveSheet} roleColor="var(--plan)"/>
+        <ItemsTable items={visibleItems} role="planning" editField={null} onUpdateItem={()=>{}} stagesVisible={{eng:hasEng,qs:hasQS,site:hasSite}}/>
+        <TotalBar items={visibleItems} showEng={hasEng} showQS={hasQS} showSite={hasSite}/>
       </Card>
       <ActivityLog log={boq.activityLog}/>
     </div>
@@ -1280,15 +1336,40 @@ function PlanningView({boq,onBack,onUpdateBoq}){
 
 // ─── Engineering: BOQ Detail ──────────────────────────────────────────────────
 function EngineeringView({boq,onUpdate,onBack}){
-  const [items,setItems]=useState(boq.items.map(i=>({...i,engQty:i.engQty||0})));
+  const initSheets=boq.sheets
+    ? boq.sheets.map(s=>({...s,items:s.items.map(i=>({...i,engQty:i.engQty||0}))}))
+    : null;
+  const [sheets,setSheets]=useState(initSheets);
+  const [activeSheet,setActiveSheet]=useState(initSheets?initSheets[0].sheetName:null);
+  // Legacy flat items (when no sheets)
+  const [items,setItems]=useState(sheets?[]:boq.items.map(i=>({...i,engQty:i.engQty||0})));
   const [atts,setAtts]=useState(boq.attachments||[]);
   const locked=boq.status!=="with_engineering";
-  const upd=(id,f,v)=>{ if(f!=="engQty") return; setItems(p=>p.map(i=>i.id===id?{...i,engQty:v}:i)); };
+
+  const visibleItems=sheets
+    ? (sheets.find(s=>s.sheetName===activeSheet)?.items||[])
+    : items;
+
+  const upd=(id,f,v)=>{
+    if(f!=="engQty") return;
+    if(sheets){
+      setSheets(p=>p.map(s=>s.sheetName===activeSheet
+        ? {...s,items:s.items.map(i=>i.id===id?{...i,engQty:v}:i)}
+        : s));
+    } else {
+      setItems(p=>p.map(i=>i.id===id?{...i,engQty:v}:i));
+    }
+  };
+
+  const flatItems=sheets?sheets.flatMap(s=>s.items):items;
 
   const submit=()=>onUpdate({
-    ...boq, items, attachments:atts,
+    ...boq,
+    sheets:sheets||boq.sheets,
+    items:flatItems,
+    attachments:atts,
     status:"with_qs",
-    activityLog:[...(boq.activityLog||[]),{time:Date.now(),user:"Engineering Team",action:`Engineering quantities submitted — forwarded to Quantity Survey Team${atts.length>boq.attachments?.length?` (${atts.length} attachment${atts.length!==1?"s":""})`:""}` }]
+    activityLog:[...(boq.activityLog||[]),{time:Date.now(),user:"Engineering Team",action:`Engineering quantities submitted — forwarded to Quantity Survey Team${atts.length>(boq.attachments?.length||0)?` (${atts.length} attachment${atts.length!==1?"s":""})`:""}` }]
   },"engineering_submitted");
 
   return(
@@ -1299,11 +1380,14 @@ function EngineeringView({boq,onUpdate,onBack}){
           <Btn variant="ghost" small onClick={onBack}>← Back</Btn>
           <div>
             <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700}}>{boq.boqId}</h1>
-            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center",flexWrap:"wrap"}}><Badge status={boq.status}/><TimeWithTeam boq={boq}/></div>
+            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center",flexWrap:"wrap"}}>
+              <Badge status={boq.status}/><TimeWithTeam boq={boq}/>
+              {sheets&&sheets.length>1&&<span style={{fontSize:11,color:"var(--eng)",background:"var(--eng)15",border:"1px solid var(--eng)30",borderRadius:20,padding:"2px 8px"}}>{sheets.length} sheets</span>}
+            </div>
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          <Btn variant="ghost" small onClick={()=>exportBoqExcel(boq,"engineering")}>⬇ Download Sheet</Btn>
+          <Btn variant="ghost" small onClick={()=>exportBoqExcel({...boq,items:flatItems},"engineering")}>⬇ Download Sheet</Btn>
           {!locked
             ? <Btn variant="success" onClick={submit}>Submit to Quantity Survey →</Btn>
             : <div style={{fontSize:12,color:"var(--green)",background:"#052e16",padding:"6px 14px",borderRadius:8,border:"1px solid #10b98140"}}>🔒 Submitted — with QS Team</div>
@@ -1316,12 +1400,13 @@ function EngineeringView({boq,onUpdate,onBack}){
       </Card>
 
       <Card style={{marginBottom:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:sheets&&sheets.length>1?12:14,flexWrap:"wrap",gap:8}}>
           <h3 style={{fontFamily:"Sora",fontSize:16}}>📦 BOQ Items</h3>
           {!locked&&<div style={{fontSize:12,color:"var(--muted)",background:"var(--s2)",padding:"5px 11px",borderRadius:8,border:"1px solid var(--border)"}}>✏️ Enter <strong style={{color:"var(--eng)"}}>Eng. Qty</strong> · Planning Qty is <strong style={{color:"var(--plan)"}}>locked</strong></div>}
         </div>
-        <ItemsTable items={items} role="engineering" editField={locked?null:"engQty"} onUpdateItem={upd} stagesVisible={{eng:true,qs:false,site:false}}/>
-        <TotalBar items={items} showEng={true} showQS={false} showSite={false}/>
+        <SheetTabs sheets={sheets} activeSheet={activeSheet} setActiveSheet={setActiveSheet} roleColor="var(--eng)"/>
+        <ItemsTable items={visibleItems} role="engineering" editField={locked?null:"engQty"} onUpdateItem={upd} stagesVisible={{eng:true,qs:false,site:false}}/>
+        <TotalBar items={visibleItems} showEng={true} showQS={false} showSite={false}/>
       </Card>
       <ActivityLog log={boq.activityLog}/>
     </div>
@@ -1330,13 +1415,37 @@ function EngineeringView({boq,onUpdate,onBack}){
 
 // ─── QS: BOQ Detail ───────────────────────────────────────────────────────────
 function QSView({boq,onUpdate,onBack}){
-  const [items,setItems]=useState(boq.items.map(i=>({...i,qsQty:i.qsQty||0})));
+  const initSheets=boq.sheets
+    ? boq.sheets.map(s=>({...s,items:s.items.map(i=>({...i,qsQty:i.qsQty||0}))}))
+    : null;
+  const [sheets,setSheets]=useState(initSheets);
+  const [activeSheet,setActiveSheet]=useState(initSheets?initSheets[0].sheetName:null);
+  const [items,setItems]=useState(sheets?[]:boq.items.map(i=>({...i,qsQty:i.qsQty||0})));
   const [atts,setAtts]=useState(boq.attachments||[]);
   const locked=boq.status!=="with_qs";
-  const upd=(id,f,v)=>{ if(f!=="qsQty") return; setItems(p=>p.map(i=>i.id===id?{...i,qsQty:v}:i)); };
+
+  const visibleItems=sheets
+    ? (sheets.find(s=>s.sheetName===activeSheet)?.items||[])
+    : items;
+
+  const upd=(id,f,v)=>{
+    if(f!=="qsQty") return;
+    if(sheets){
+      setSheets(p=>p.map(s=>s.sheetName===activeSheet
+        ? {...s,items:s.items.map(i=>i.id===id?{...i,qsQty:v}:i)}
+        : s));
+    } else {
+      setItems(p=>p.map(i=>i.id===id?{...i,qsQty:v}:i));
+    }
+  };
+
+  const flatItems=sheets?sheets.flatMap(s=>s.items):items;
 
   const submit=()=>onUpdate({
-    ...boq, items, attachments:atts,
+    ...boq,
+    sheets:sheets||boq.sheets,
+    items:flatItems,
+    attachments:atts,
     status:"with_site",
     activityLog:[...(boq.activityLog||[]),{time:Date.now(),user:"Quantity Survey Team",action:`QS quantities submitted — forwarded to Project Team`}]
   },"qs_submitted");
@@ -1349,11 +1458,14 @@ function QSView({boq,onUpdate,onBack}){
           <Btn variant="ghost" small onClick={onBack}>← Back</Btn>
           <div>
             <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700}}>{boq.boqId}</h1>
-            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center",flexWrap:"wrap"}}><Badge status={boq.status}/><TimeWithTeam boq={boq}/></div>
+            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center",flexWrap:"wrap"}}>
+              <Badge status={boq.status}/><TimeWithTeam boq={boq}/>
+              {sheets&&sheets.length>1&&<span style={{fontSize:11,color:"var(--qs)",background:"var(--qs)15",border:"1px solid var(--qs)30",borderRadius:20,padding:"2px 8px"}}>{sheets.length} sheets</span>}
+            </div>
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          <Btn variant="ghost" small onClick={()=>exportBoqExcel(boq,"qs")}>⬇ Download Sheet</Btn>
+          <Btn variant="ghost" small onClick={()=>exportBoqExcel({...boq,items:flatItems},"qs")}>⬇ Download Sheet</Btn>
           {!locked
             ? <Btn variant="amber" onClick={submit}>Submit to Project Team →</Btn>
             : <div style={{fontSize:12,color:"var(--amber)",background:"#2a1a00",padding:"6px 14px",borderRadius:8,border:"1px solid #f59e0b40"}}>🔒 Submitted — with Project Team</div>
@@ -1368,12 +1480,13 @@ function QSView({boq,onUpdate,onBack}){
       </Card>
 
       <Card style={{marginBottom:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:sheets&&sheets.length>1?12:14,flexWrap:"wrap",gap:8}}>
           <h3 style={{fontFamily:"Sora",fontSize:16}}>📦 BOQ Items</h3>
           {!locked&&<div style={{fontSize:12,color:"var(--muted)",background:"var(--s2)",padding:"5px 11px",borderRadius:8,border:"1px solid var(--border)"}}>✏️ Enter <strong style={{color:"var(--qs)"}}>QS Qty</strong> — Eng. Qty is <strong style={{color:"var(--eng)"}}>locked</strong></div>}
         </div>
-        <ItemsTable items={items} role="qs" editField={locked?null:"qsQty"} onUpdateItem={upd} stagesVisible={{eng:true,qs:true,site:false}}/>
-        <TotalBar items={items} showEng={true} showQS={true} showSite={false}/>
+        <SheetTabs sheets={sheets} activeSheet={activeSheet} setActiveSheet={setActiveSheet} roleColor="var(--qs)"/>
+        <ItemsTable items={visibleItems} role="qs" editField={locked?null:"qsQty"} onUpdateItem={upd} stagesVisible={{eng:true,qs:true,site:false}}/>
+        <TotalBar items={visibleItems} showEng={true} showQS={true} showSite={false}/>
       </Card>
       <ActivityLog log={boq.activityLog}/>
     </div>
@@ -1382,15 +1495,37 @@ function QSView({boq,onUpdate,onBack}){
 
 // ─── Site: BOQ Detail ─────────────────────────────────────────────────────────
 function SiteView({boq,onUpdate,onBack,users=[]}){
-  const [items,setItems]=useState(boq.items.map(i=>({...i,siteQty:i.siteQty||0})));
+  const initSheets=boq.sheets
+    ? boq.sheets.map(s=>({...s,items:s.items.map(i=>({...i,siteQty:i.siteQty||0}))}))
+    : null;
+  const [sheets,setSheets]=useState(initSheets);
+  const [activeSheet,setActiveSheet]=useState(initSheets?initSheets[0].sheetName:null);
+  const [items,setItems]=useState(sheets?[]:boq.items.map(i=>({...i,siteQty:i.siteQty||0})));
   const [atts,setAtts]=useState(boq.attachments||[]);
   const locked=boq.status!=="with_site";
-  const upd=(id,f,v)=>{ if(f!=="siteQty") return; setItems(p=>p.map(i=>i.id===id?{...i,siteQty:v}:i)); };
 
+  const visibleItems=sheets
+    ? (sheets.find(s=>s.sheetName===activeSheet)?.items||[])
+    : items;
 
+  const upd=(id,f,v)=>{
+    if(f!=="siteQty") return;
+    if(sheets){
+      setSheets(p=>p.map(s=>s.sheetName===activeSheet
+        ? {...s,items:s.items.map(i=>i.id===id?{...i,siteQty:v}:i)}
+        : s));
+    } else {
+      setItems(p=>p.map(i=>i.id===id?{...i,siteQty:v}:i));
+    }
+  };
+
+  const flatItems=sheets?sheets.flatMap(s=>s.items):items;
 
   const submit=()=>onUpdate({
-    ...boq, items, attachments:atts,
+    ...boq,
+    sheets:sheets||boq.sheets,
+    items:flatItems,
+    attachments:atts,
     status:"completed",
     activityLog:[...(boq.activityLog||[]),{time:Date.now(),user:"Project Team",action:"Site quantities submitted — BOQ Completed"}]
   },"site_submitted");
@@ -1403,11 +1538,14 @@ function SiteView({boq,onUpdate,onBack,users=[]}){
           <Btn variant="ghost" small onClick={onBack}>← Back</Btn>
           <div>
             <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700}}>{boq.boqId}</h1>
-            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center",flexWrap:"wrap"}}><Badge status={boq.status}/><TimeWithTeam boq={boq}/></div>
+            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center",flexWrap:"wrap"}}>
+              <Badge status={boq.status}/><TimeWithTeam boq={boq}/>
+              {sheets&&sheets.length>1&&<span style={{fontSize:11,color:"var(--site)",background:"var(--site)15",border:"1px solid var(--site)30",borderRadius:20,padding:"2px 8px"}}>{sheets.length} sheets</span>}
+            </div>
           </div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-          <Btn variant="outline" small onClick={()=>exportBoqExcel({...boq,items},"site")}>⬇ Download Sheet</Btn>
+          <Btn variant="outline" small onClick={()=>exportBoqExcel({...boq,items:flatItems},"site")}>⬇ Download Sheet</Btn>
           {!locked
             ? <Btn variant="rose" onClick={submit}>✅ Submit & Complete BOQ</Btn>
             : <div style={{fontSize:12,color:"var(--green)",background:"#052e16",padding:"6px 14px",borderRadius:8,border:"1px solid #10b98140"}}>✅ Completed</div>
@@ -1422,13 +1560,14 @@ function SiteView({boq,onUpdate,onBack,users=[]}){
       </Card>
 
       <Card style={{marginBottom:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:sheets&&sheets.length>1?12:14,flexWrap:"wrap",gap:8}}>
           <h3 style={{fontFamily:"Sora",fontSize:16}}>📦 BOQ Items — Full View</h3>
           {!locked&&<div style={{fontSize:12,color:"var(--muted)",background:"var(--s2)",padding:"5px 11px",borderRadius:8,border:"1px solid var(--border)"}}>✏️ Enter <strong style={{color:"var(--site)"}}>Site Qty</strong> — compared vs <strong style={{color:"var(--eng)"}}>Eng. Qty</strong></div>}
           {locked&&<div style={{fontSize:12,color:"var(--site)",background:"#2a0010",padding:"5px 11px",borderRadius:8,border:"1px solid #f43f5e40"}}>✅ Completed</div>}
         </div>
-        <ItemsTable items={items} role="site" editField={locked?null:"siteQty"} onUpdateItem={upd} stagesVisible={{eng:true,qs:true,site:true}}/>
-        <TotalBar items={items} showEng={true} showQS={true} showSite={true}/>
+        <SheetTabs sheets={sheets} activeSheet={activeSheet} setActiveSheet={setActiveSheet} roleColor="var(--site)"/>
+        <ItemsTable items={visibleItems} role="site" editField={locked?null:"siteQty"} onUpdateItem={upd} stagesVisible={{eng:true,qs:true,site:true}}/>
+        <TotalBar items={visibleItems} showEng={true} showQS={true} showSite={true}/>
       </Card>
       <ActivityLog log={boq.activityLog}/>
       {locked&&<div style={{textAlign:"center",padding:12,background:"#052e16",borderRadius:10,border:"1px solid #10b98140",color:"var(--green)",marginTop:14}}>✅ BOQ fully completed by Project Team</div>}
