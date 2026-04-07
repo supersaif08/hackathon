@@ -3474,12 +3474,6 @@ function ProcurementDashboard(){
         <div style={{position:"relative"}}>
           <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:"var(--muted)",textTransform:"uppercase",marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
             <span>Filter by PR Creation Date</span>
-            {dataRange&&!isFullRange&&(
-              <button onClick={()=>{setDateFrom(dataRange.min);setDateTo(dataRange.max);}}
-                style={{background:"none",border:"1px solid var(--accent)",borderRadius:10,color:"var(--accent)",fontSize:10,cursor:"pointer",fontWeight:700,padding:"1px 8px",lineHeight:"16px"}}>
-                ↺ Full Range
-              </button>
-            )}
             {dateActive&&(
               <button onClick={()=>{setDateFrom("");setDateTo("");}}
                 style={{background:"none",border:"none",color:"var(--muted)",fontSize:11,cursor:"pointer",fontWeight:600,padding:0,marginLeft:"auto"}}>
@@ -3491,7 +3485,7 @@ function ProcurementDashboard(){
             style={{display:"flex",alignItems:"center",gap:8,background:dateActive&&!isFullRange?"#1e3a5f":"var(--s2)",border:`1px solid ${dateOpen?"var(--accent)":dateActive&&!isFullRange?"var(--accent)":"var(--border)"}`,borderRadius:9,padding:"9px 14px",cursor:"pointer",width:"100%",textAlign:"left",transition:"border-color .15s"}}>
             <span style={{fontSize:15}}>📅</span>
             <span style={{flex:1,fontSize:13,color:dateActive&&!isFullRange?"var(--accent)":"var(--muted)",fontWeight:dateActive&&!isFullRange?600:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-              {dateActive?(dateFrom||"…")+" → "+(dateTo||"…")+(isFullRange?" (Full Range)":""):"All Dates"}
+              {dateActive?(dateFrom||"…")+" → "+(dateTo||"…"):"All Dates"}
             </span>
             <span style={{fontSize:10,color:"var(--muted)",flexShrink:0,marginLeft:"auto"}}>{dateOpen?"▲":"▼"}</span>
           </button>
@@ -3506,10 +3500,6 @@ function ProcurementDashboard(){
                     <div style={{fontSize:10,color:"var(--muted)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>📊 Data Range in File</div>
                     <div style={{fontSize:12,color:"var(--green)",fontWeight:700,fontFamily:"monospace"}}>{dataRange.min} → {dataRange.max}</div>
                   </div>
-                  <button onClick={()=>{setDateFrom(dataRange.min);setDateTo(dataRange.max);}}
-                    style={{padding:"4px 10px",fontSize:11,fontWeight:700,borderRadius:6,border:"1px solid var(--green)",background:"transparent",color:"var(--green)",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
-                    Use Full Range
-                  </button>
                 </div>
               )}
 
@@ -3579,10 +3569,7 @@ function ProcurementDashboard(){
                   Clear Dates
                 </button>
                 {dataRange&&(
-                  <button onClick={()=>{setDateFrom(dataRange.min);setDateTo(dataRange.max);}}
-                    style={{padding:"6px 14px",fontSize:12,fontWeight:600,borderRadius:7,border:"1px solid var(--green)",background:"transparent",color:"var(--green)",cursor:"pointer"}}>
-                    ↺ Full Range
-                  </button>
+                  </div>
                 )}
                 <button onClick={()=>setDateOpen(false)}
                   style={{padding:"6px 18px",fontSize:12,fontWeight:600,borderRadius:7,border:"none",background:"var(--accent)",color:"#fff",cursor:"pointer"}}>
@@ -3596,7 +3583,7 @@ function ProcurementDashboard(){
           {dateActive&&(
             <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8,alignItems:"center"}}>
               <span style={{display:"flex",alignItems:"center",gap:4,background:isFullRange?"var(--s3)":"#1e3a5f",border:`1px solid ${isFullRange?"var(--border)":"var(--accent)"}`,borderRadius:20,padding:"3px 10px",fontSize:11,color:isFullRange?"var(--muted)":"var(--accent)",fontWeight:600}}>
-                📅 {dateFrom||"…"} → {dateTo||"…"}{isFullRange?" (Full Range)":""}
+                📅 {dateFrom||"…"} → {dateTo||"…"}
                 <button onClick={()=>{setDateFrom("");setDateTo("");}} style={{background:"none",border:"none",color:isFullRange?"var(--muted)":"var(--accent)",cursor:"pointer",padding:0,fontSize:12,lineHeight:1}}>×</button>
               </span>
             </div>
