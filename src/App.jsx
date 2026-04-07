@@ -50,7 +50,7 @@ const INITIAL_USERS = [
   { id:2, name:"user_2",    email:"engineering@listenlights.com", password:"eng123",  role:"engineering", phone:"9876543211", designation:"Senior Engineer",    active:true, pages:["dashboard","pending","my-boqs","reports"] },
   { id:3, name:"user_3",   email:"QS@listenlights.com",          password:"qs123",   role:"qs",          phone:"9876543212", designation:"QS Analyst",         active:true, pages:["dashboard","pending","my-boqs","reports"] },
   { id:4, name:"user_4",    email:"site@listenlights.com",        password:"site123", role:"site",        phone:"9876543213", designation:"Site Supervisor",    active:true, pages:["dashboard","pending","my-boqs","reports"] },
-  { id:5, name:"Priya Menon",    email:"procurement@corp.com", password:"proc123",  role:"procurement", phone:"9876543214", designation:"Procurement Manager", active:true, pages:["dashboard","procurement","quotations"] },
+  { id:5, name:"User_5",    email:"procurement@corp.com", password:"proc123",  role:"procurement", phone:"9876543214", designation:"Procurement Manager", active:true, pages:["dashboard","procurement","quotations"] },
   { id:6, name:"Rahul Traders",  email:"vendor1@corp.com",     password:"vend123",  role:"vendor", phone:"9876543220", designation:"Vendor",  active:true, pages:["quotes"] },
   { id:7, name:"Mehta Supplies", email:"vendor2@corp.com",     password:"vend123",  role:"vendor", phone:"9876543221", designation:"Vendor",  active:true, pages:["quotes"] },
   { id:8, name:"Singh & Co.",    email:"vendor3@corp.com",     password:"vend123",  role:"vendor", phone:"9876543222", designation:"Vendor",  active:true, pages:["quotes"] },
