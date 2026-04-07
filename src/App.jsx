@@ -3568,9 +3568,6 @@ function ProcurementDashboard(){
                   style={{padding:"6px 14px",fontSize:12,fontWeight:600,borderRadius:7,border:"1px solid var(--border)",background:"transparent",color:"var(--muted)",cursor:"pointer"}}>
                   Clear Dates
                 </button>
-                {dataRange&&(
-                  </div>
-                )}
                 <button onClick={()=>setDateOpen(false)}
                   style={{padding:"6px 18px",fontSize:12,fontWeight:600,borderRadius:7,border:"none",background:"var(--accent)",color:"#fff",cursor:"pointer"}}>
                   Apply
