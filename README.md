@@ -12,21 +12,6 @@ This project is a modern single-page application built with React, Vite, Rechart
 - import Excel-based BOQs with intelligent column parsing
 - visualize BOQ data and workflow status using charts
 
-## Expected Excel Data Format
-
-To seamlessly create a new BOQ via the Quick Upload feature, your Excel (`.xlsx` or `.csv`) file should have the following headers in its first row. 
-
-> [!TIP]
-> **[Download the `sample_boq.xlsx` here](https://supersaif08.github.io/hackathon/sample_boq.xlsx)** for a compliant template file!
-
-| Column Header      | Description                                                | Required | Example                     |
-| :---               | :---                                                       | :---:    | :---                        |
-| `Line Item ID`     | A unique identifier for the specific line item             | ✅       | `2422849`                   |
-| `Label/No`         | The hierarchical index or number for the item              |          | `1.1.1`                     |
-| `Item Description` | Detailed text describing the component to procure or build | ✅       | `RING MAIN UNIT- 11kV`      |
-| `Unit`             | Unit of measurement (e.g., Nos, Mtrs., Sets)               | ✅       | `Nos`                       |
-| `Quantity`         | The numeric base projected quantity                        | ✅       | `1`                         |
-
 ## Key Features
 
 - Role-based navigation for planning, engineering, QS, site, procurement, and vendor users
