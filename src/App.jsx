@@ -10,8 +10,19 @@ const G = `
     --border:#2a3552;--accent:#3b82f6;--green:#10b981;--amber:#f59e0b;
     --red:#ef4444;--text:#e2e8f0;--muted:#64748b;
     --plan:#8b5cf6;--eng:#10b981;--qs:#f59e0b;--site:#f43f5e;
+    --proc:#f0a030;--vendor:#06b6d4;--btn-amber-text:#000;
+    --bg-draft:#1e293b;--bg-eng:#064e3b;--bg-qs:#3d2600;--bg-site:#3f0018;--bg-comp:#1e3a5f;
   }
-  html,body,#root{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text)}
+  [data-theme="light"] {
+    --bg:#f8fafc;--surface:#ffffff;--s2:#f1f5f9;--s3:#e2e8f0;
+    --border:#cbd5e1;--text:#0f172a;--muted:#475569;
+    --accent:#2563eb;
+    --green:#059669;--amber:#ea580c;--red:#dc2626;
+    --plan:#6d28d9;--eng:#059669;--qs:#ea580c;--site:#be123c;
+    --proc:#ea580c;--vendor:#0284c7;--btn-amber-text:#ffffff;
+    --bg-draft:#e2e8f0;--bg-eng:#d1fae5;--bg-qs:#ffedd5;--bg-site:#ffe4e6;--bg-comp:#dbeafe;
+  }
+  html,body,#root{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);transition:background .3s,color .3s}
   ::-webkit-scrollbar{width:6px;height:6px}
   ::-webkit-scrollbar-track{background:var(--surface)}
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
@@ -58,20 +69,20 @@ const INITIAL_USERS = [
 const mkInitials = n => n.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
 
 const ROLE_META = {
-  planning:    { label:"Project Control",        color:"#8b5cf6", icon:"📐" },
-  engineering: { label:"Engineering Team",     color:"#10b981", icon:"⚙️" },
-  qs:          { label:"Quantity Survey Team", color:"#f59e0b", icon:"📏" },
-  site:        { label:"Project Team",            color:"#f43f5e", icon:"🏗️" },
-  procurement: { label:"Procurement Team",     color:"#f0a030", icon:"📦" },
-  vendor:      { label:"Vendor",               color:"#06b6d4", icon:"🏭" },
+  planning:    { label:"Project Control",      color:"var(--plan)", icon:"📐" },
+  engineering: { label:"Engineering Team",     color:"var(--eng)", icon:"⚙️" },
+  qs:          { label:"Quantity Survey Team", color:"var(--qs)", icon:"📏" },
+  site:        { label:"Project Team",         color:"var(--site)", icon:"🏗️" },
+  procurement: { label:"Procurement Team",     color:"var(--proc)", icon:"📦" },
+  vendor:      { label:"Vendor",               color:"var(--vendor)", icon:"🏭" },
 };
 
 const STATUS_META = {
-  draft:           { label:"Draft",                    color:"#64748b", bg:"#1e293b" },
-  with_engineering:{ label:"With Engineering",         color:"#10b981", bg:"#064e3b" },
-  with_qs:         { label:"With Quantity Survey",     color:"#f59e0b", bg:"#3d2600" },
-  with_site:       { label:"With Project Team",           color:"#f43f5e", bg:"#3f0018" },
-  completed:       { label:"Completed",                color:"#3b82f6", bg:"#1e3a5f" },
+  draft:           { label:"Draft",                color:"var(--muted)", bg:"var(--bg-draft)" },
+  with_engineering:{ label:"With Engineering",     color:"var(--eng)", bg:"var(--bg-eng)" },
+  with_qs:         { label:"With Quantity Survey", color:"var(--qs)", bg:"var(--bg-qs)" },
+  with_site:       { label:"With Project Team",    color:"var(--site)", bg:"var(--bg-site)" },
+  completed:       { label:"Completed",            color:"var(--accent)", bg:"var(--bg-comp)" },
 };
 
 const UNIT_LIST = ["No's","Nos","Sets","R.Mtrs","Mtrs.","Mts","L/S","M.Ton","Cu. Mtrs","Sq.Mtr","MT","KG","CFT","SQM","LTR","Bags","RM","Sqft","RMT","Lump","LS","Lot","KVA","KW","Mtr"];
@@ -287,8 +298,8 @@ function pn(str){const n=parseFloat(String(str).replace(/,/g,'').trim());return 
 
 // ─── UI Primitives ────────────────────────────────────────────────────────────
 function Badge({status}){
-  const m=STATUS_META[status]||{label:status,color:"#64748b",bg:"#1e293b"};
-  return <span style={{background:m.bg,color:m.color,border:`1px solid ${m.color}40`,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>{m.label}</span>;
+  const m=STATUS_META[status]||{label:status,color:"var(--muted)",bg:"var(--bg-draft)"};
+  return <span style={{background:m.bg,color:m.color,border:`1px solid var(--border)`,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>{m.label}</span>;
 }
 function Btn({children,variant="primary",onClick,disabled,small,style={}}){
   const v={
@@ -297,7 +308,7 @@ function Btn({children,variant="primary",onClick,disabled,small,style={}}){
     ghost:{background:"transparent",color:"var(--muted)",border:"1px solid var(--border)"},
     outline:{background:"transparent",color:"var(--accent)",border:"1px solid var(--accent)"},
     purple:{background:"var(--plan)",color:"#fff"},
-    amber:{background:"var(--qs)",color:"#000"},
+    amber:{background:"var(--qs)",color:"var(--btn-amber-text)"},
     rose:{background:"var(--site)",color:"#fff"},
   };
   return <button onClick={onClick} disabled={disabled} style={{padding:small?"6px 14px":"9px 18px",fontSize:small?12:13,fontWeight:600,opacity:disabled?.4:1,...v[variant],...style}}>{children}</button>;
@@ -314,7 +325,7 @@ function StatCard({icon,label,value,color}){
 function DiffBadge({diff,show}){
   if(!show) return <span style={{color:"var(--muted)"}}>—</span>;
   const c=diff===0?"var(--green)":diff>0?"var(--amber)":"var(--red)";
-  return <span style={{fontSize:12,fontWeight:700,color:c,background:`${c}18`,border:`1px solid ${c}35`,borderRadius:20,padding:"3px 9px",whiteSpace:"nowrap"}}>{diff>0?"+":""}{diff}</span>;
+  return <span style={{fontSize:12,fontWeight:700,color:c,background:"var(--s3)",border:`1px solid var(--border)`,borderRadius:20,padding:"3px 9px",whiteSpace:"nowrap"}}>{diff>0?"+":""}{diff}</span>;
 }
 function DescCell({text,editable,onChange}){
   if(!editable) return <div style={{lineHeight:1.75,fontSize:13,whiteSpace:"pre-wrap",wordBreak:"break-word",color:"var(--text)",padding:"2px 0"}}>{text||<span style={{color:"var(--muted)"}}>—</span>}</div>;
@@ -350,7 +361,7 @@ function NotifBell({notifications,onClear}){
               <div key={n.id} style={{padding:"12px 16px",borderBottom:"1px solid var(--border)",background:n.read?"transparent":"#1e293b",display:"flex",gap:12,alignItems:"flex-start"}}>
                 <span style={{fontSize:18,flexShrink:0}}>{n.icon}</span>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:n.read?400:600,lineHeight:1.5}}>{n.message}</div>
+                  <div style={{fontSize:13,fontWeight:n.read?400:600,lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap"}}>{n.message}</div>
                   <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>{new Date(n.time).toLocaleString()}</div>
                 </div>
                 {!n.read&&<div style={{width:8,height:8,borderRadius:"50%",background:"var(--accent)",flexShrink:0,marginTop:4}}/>}
@@ -663,7 +674,7 @@ function SheetTabs({sheets, activeSheet, setActiveSheet, roleColor}){
 // ─── Alert Banner ─────────────────────────────────────────────────────────────
 function AlertBanner({icon,title,desc,color,bg}){
   return(
-    <div style={{marginBottom:14,padding:"12px 16px",background:bg,border:`1px solid ${color}`,borderRadius:10,display:"flex",gap:12,alignItems:"flex-start"}}>
+    <div style={{marginBottom:14,padding:"12px 16px",background:"var(--s3)",border:`1px solid ${color}`,borderRadius:10,display:"flex",gap:12,alignItems:"flex-start"}}>
       <span style={{fontSize:20,flexShrink:0}}>{icon}</span>
       <div><div style={{fontWeight:600,color}}>{title}</div><div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>{desc}</div></div>
     </div>
@@ -671,7 +682,7 @@ function AlertBanner({icon,title,desc,color,bg}){
 }
 
 // ─── Login ────────────────────────────────────────────────────────────────────
-function LoginScreen({onLogin,users}){
+function LoginScreen({onLogin,users,theme,toggleTheme}){
   const [email,setEmail]=useState("");
   const [pw,setPw]=useState("");
   const [err,setErr]=useState("");
@@ -685,7 +696,12 @@ function LoginScreen({onLogin,users}){
     },400);
   };
   return(
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"radial-gradient(ellipse at 30% 50%, #1e293b 0%, #0b0f1a 60%)"}}>
+    <div data-theme={theme} style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--bg)",color:"var(--text)",position:"relative"}}>
+      <div style={{position:"absolute", top:20, right:20}}>
+        <Btn variant="ghost" onClick={toggleTheme} small>
+          {theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode"}
+        </Btn>
+      </div>
       <div className="fade-in" style={{width:"100%",maxWidth:460,padding:20}}>
         <div style={{textAlign:"center",marginBottom:26}}>
           <div style={{width:64,height:64,borderRadius:18,background:"linear-gradient(135deg,#8b5cf6,#3b82f6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,margin:"0 auto 14px",boxShadow:"0 0 30px #8b5cf640"}}>📋</div>
@@ -728,7 +744,7 @@ function LoginScreen({onLogin,users}){
 }
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
-function Sidebar({user,page,setPage,onLogout,boqs,notifications,onClearNotif}){
+function Sidebar({user,page,setPage,onLogout,boqs,theme,toggleTheme}){
   const role=ROLE_META[user.role]||{label:"User",color:"#94a3b8",icon:"👤",level:0};
   const engPending=boqs.filter(b=>b.status==="with_engineering").length;
   const qsPending=boqs.filter(b=>b.status==="with_qs").length;
@@ -754,14 +770,14 @@ function Sidebar({user,page,setPage,onLogout,boqs,notifications,onClearNotif}){
         </div>
       </div>
       <div style={{padding:"10px 14px",borderBottom:"1px solid var(--border)"}}>
-        <div style={{background:`${role.color}18`,border:`1px solid ${role.color}30`,borderRadius:8,padding:"8px 11px",display:"flex",alignItems:"center",gap:8}}>
+        <div style={{background:`var(--s2)`,border:`1px solid var(--border)`,borderRadius:8,padding:"8px 11px",display:"flex",alignItems:"center",gap:8}}>
           <span style={{fontSize:16}}>{role.icon}</span>
           <div><div style={{fontSize:11,fontWeight:600,color:role.color}}>{role.label}</div></div>
         </div>
       </div>
       <nav style={{flex:1,padding:"8px 6px"}}>
         {nav.map(item=>(
-          <button key={item.id} onClick={()=>setPage(item.id)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 11px",borderRadius:9,marginBottom:2,fontSize:13,fontWeight:500,background:page===item.id?`${role.color}20`:"transparent",color:page===item.id?role.color:"var(--muted)",border:page===item.id?`1px solid ${role.color}30`:"1px solid transparent"}}>
+          <button key={item.id} onClick={()=>setPage(item.id)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 11px",borderRadius:9,marginBottom:2,fontSize:13,fontWeight:500,background:page===item.id?`var(--s2)`:"transparent",color:page===item.id?role.color:"var(--muted)",border:page===item.id?`1px solid var(--border)`:"1px solid transparent"}}>
             <span>{item.icon} {item.label}</span>
             {item.badge>0&&<span style={{background:"var(--accent)",color:"#fff",borderRadius:20,padding:"1px 7px",fontSize:10,fontWeight:700}}>{item.badge}</span>}
           </button>
@@ -769,11 +785,13 @@ function Sidebar({user,page,setPage,onLogout,boqs,notifications,onClearNotif}){
       </nav>
       <div style={{padding:"12px 14px",borderTop:"1px solid var(--border)"}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-          <div style={{width:32,height:32,borderRadius:"50%",background:`${role.color}28`,border:`1px solid ${role.color}50`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:role.color}}>{user.avatar||mkInitials(user.name)}</div>
+          <div style={{width:32,height:32,borderRadius:"50%",background:`var(--s2)`,border:`1px solid var(--border)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:role.color}}>{user.avatar||mkInitials(user.name)}</div>
           <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{user.name}</div><div style={{fontSize:10,color:"var(--muted)"}}>{user.email}</div></div>
-          <NotifBell notifications={notifications} onClear={onClearNotif}/>
         </div>
         {/* Theme toggle */}
+        <Btn variant="ghost" onClick={toggleTheme} style={{width:"100%",fontSize:12,padding:6,marginBottom:6}}>
+          {theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode"}
+        </Btn>
         <Btn variant="ghost" onClick={onLogout} style={{width:"100%",fontSize:12,padding:6}}>Sign Out</Btn>
       </div>
     </div>
@@ -926,10 +944,9 @@ function TimeWithTeam({boq}){
   if(days>=7)       urgency="critical";
   else if(days>=3)  urgency="warning";
   const colors={normal:"var(--green)",warning:"var(--amber)",critical:"var(--red)"};
-  const bgs={normal:"#052e16",warning:"#2a1a00",critical:"#3f0000"};
-  const c=colors[urgency], bg=bgs[urgency];
+  const c=colors[urgency];
   return(
-    <div style={{display:"inline-flex",alignItems:"center",gap:6,background:bg,border:`1px solid ${c}40`,
+    <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"var(--s3)",border:`1px solid var(--border)`,
       borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:600,color:c}}>
       <span style={{fontSize:14}}>⏱</span>
       <span>With {teamName} for <strong>{timeStr}</strong></span>
@@ -1062,7 +1079,7 @@ function BOQCreator({onSave,user}){
 
   if(done) return(<div className="fade-in" style={{textAlign:"center",padding:"80px 0"}}><div style={{fontSize:60,marginBottom:14}}>✅</div><h2 style={{fontFamily:"Sora",fontSize:22,marginBottom:8}}>Submitted to Engineering!</h2><p style={{color:"var(--muted)"}}>Engineering → QS → Project Team will review in sequence.</p></div>);
 
-  const ub=drag?"#052e16":"#1a2235";
+  const ub=drag?"var(--s3)":"var(--s2)";
   const uc=drag?"var(--green)":ps==="error"?"var(--red)":"var(--accent)";
 
   return(
@@ -1077,7 +1094,7 @@ function BOQCreator({onSave,user}){
             <div style={{color:"var(--muted)",fontSize:12,marginBottom:10}}>Auto-detects: Line Item ID · Label · Description · Unit · Qty</div>
             <div style={{display:"inline-block",background:"var(--accent)",color:"#fff",padding:"6px 18px",borderRadius:8,fontSize:13,fontWeight:600}}>Browse Files</div></>}
       </div>
-      {pm&&<div style={{marginBottom:12,padding:"8px 14px",borderRadius:9,fontSize:13,background:ps==="done"?"#052e16":ps==="error"?"#3f0000":"var(--s2)",color:ps==="done"?"var(--green)":ps==="error"?"var(--red)":"var(--muted)",border:`1px solid ${ps==="done"?"#10b98140":ps==="error"?"#ef444440":"var(--border)"}`}}>{pm}</div>}
+      {pm&&<div style={{marginBottom:12,padding:"8px 14px",borderRadius:9,fontSize:13,background:"var(--s3)",color:ps==="done"?"var(--green)":ps==="error"?"var(--red)":"var(--muted)",border:`1px solid var(--border)`}}>{pm}</div>}
       {/* ── Multi-sheet selector ── */}
       {isMulti&&(
         <Card style={{marginBottom:16}}>
@@ -1093,7 +1110,7 @@ function BOQCreator({onSave,user}){
               const sel=selSheets.has(s.sheetName);
               const active=activeSheet===s.sheetName;
               return(
-                <div key={s.sheetName} style={{border:`1px solid ${active?"var(--accent)":sel?"var(--green)":"var(--border)"}`,borderRadius:10,padding:"8px 14px",background:active?"#1e3a5f":sel?"#052e16":"var(--s2)",cursor:"pointer",transition:"all .15s",minWidth:160}}
+                <div key={s.sheetName} style={{border:`1px solid ${active?"var(--accent)":sel?"var(--green)":"var(--border)"}`,borderRadius:10,padding:"8px 14px",background:active?"var(--s3)":sel?"var(--s2)":"var(--surface)",cursor:"pointer",transition:"all .15s",minWidth:160}}
                   onClick={()=>setActiveSheet(s.sheetName)}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:4}}>
                     <span style={{fontWeight:700,fontSize:13,color:active?"var(--accent)":sel?"var(--green)":"var(--text)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:160}}>{s.sheetName}</span>
@@ -1303,12 +1320,12 @@ function PlanningView({boq,onBack,onUpdateBoq}){
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,padding:"14px 18px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,flexWrap:"wrap",gap:10}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <Btn variant="ghost" small onClick={onBack}>← Back</Btn>
-          <div>
-            <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700}}>{boq.boqId}</h1>
-            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700,margin:0}}>{boq.boqId}</h1>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
               <Badge status={boq.status}/>
               <span style={{color:"var(--muted)",fontSize:12}}>{new Date(boq.createdAt).toLocaleDateString()}</span>
-              {sheets&&sheets.length>1&&<span style={{fontSize:11,color:"var(--plan)",background:"var(--plan)15",border:"1px solid var(--plan)30",borderRadius:20,padding:"2px 8px"}}>{sheets.length} sheets</span>}
+              {sheets&&sheets.length>1&&<span style={{fontSize:11,color:"var(--plan)",background:"var(--s2)",border:"1px solid var(--border)",borderRadius:20,padding:"2px 8px"}}>{sheets.length} sheets</span>}
             </div>
           </div>
         </div>
@@ -1378,11 +1395,11 @@ function EngineeringView({boq,onUpdate,onBack}){
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,padding:"14px 18px",background:"var(--surface)",border:`1px solid ${locked?"var(--border)":"var(--eng)40"}`,borderRadius:12,flexWrap:"wrap",gap:10}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <Btn variant="ghost" small onClick={onBack}>← Back</Btn>
-          <div>
-            <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700}}>{boq.boqId}</h1>
-            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center",flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700,margin:0}}>{boq.boqId}</h1>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
               <Badge status={boq.status}/><TimeWithTeam boq={boq}/>
-              {sheets&&sheets.length>1&&<span style={{fontSize:11,color:"var(--eng)",background:"var(--eng)15",border:"1px solid var(--eng)30",borderRadius:20,padding:"2px 8px"}}>{sheets.length} sheets</span>}
+              {sheets&&sheets.length>1&&<span style={{fontSize:11,color:"var(--eng)",background:"var(--s2)",border:"1px solid var(--border)",borderRadius:20,padding:"2px 8px"}}>{sheets.length} sheets</span>}
             </div>
           </div>
         </div>
@@ -1390,7 +1407,7 @@ function EngineeringView({boq,onUpdate,onBack}){
           <Btn variant="ghost" small onClick={()=>exportBoqExcel({...boq,items:flatItems},"engineering")}>⬇ Download Sheet</Btn>
           {!locked
             ? <Btn variant="success" onClick={submit}>Submit to Quantity Survey →</Btn>
-            : <div style={{fontSize:12,color:"var(--green)",background:"#052e16",padding:"6px 14px",borderRadius:8,border:"1px solid #10b98140"}}>🔒 Submitted — with QS Team</div>
+            : <div style={{fontSize:12,color:"var(--green)",background:"var(--s2)",padding:"6px 14px",borderRadius:8,border:"1px solid var(--border)",fontWeight:600}}>🔒 Submitted — with QS Team</div>
           }
         </div>
       </div>
@@ -1456,11 +1473,11 @@ function QSView({boq,onUpdate,onBack}){
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,padding:"14px 18px",background:"var(--surface)",border:`1px solid ${locked?"var(--border)":"var(--qs)40"}`,borderRadius:12,flexWrap:"wrap",gap:10}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <Btn variant="ghost" small onClick={onBack}>← Back</Btn>
-          <div>
-            <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700}}>{boq.boqId}</h1>
-            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center",flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700,margin:0}}>{boq.boqId}</h1>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
               <Badge status={boq.status}/><TimeWithTeam boq={boq}/>
-              {sheets&&sheets.length>1&&<span style={{fontSize:11,color:"var(--qs)",background:"var(--qs)15",border:"1px solid var(--qs)30",borderRadius:20,padding:"2px 8px"}}>{sheets.length} sheets</span>}
+              {sheets&&sheets.length>1&&<span style={{fontSize:11,color:"var(--qs)",background:"var(--s2)",border:"1px solid var(--border)",borderRadius:20,padding:"2px 8px"}}>{sheets.length} sheets</span>}
             </div>
           </div>
         </div>
@@ -1468,7 +1485,7 @@ function QSView({boq,onUpdate,onBack}){
           <Btn variant="ghost" small onClick={()=>exportBoqExcel({...boq,items:flatItems},"qs")}>⬇ Download Sheet</Btn>
           {!locked
             ? <Btn variant="amber" onClick={submit}>Submit to Project Team →</Btn>
-            : <div style={{fontSize:12,color:"var(--amber)",background:"#2a1a00",padding:"6px 14px",borderRadius:8,border:"1px solid #f59e0b40"}}>🔒 Submitted — with Project Team</div>
+            : <div style={{fontSize:12,color:"var(--amber)",background:"var(--s2)",padding:"6px 14px",borderRadius:8,border:"1px solid var(--border)",fontWeight:600}}>🔒 Submitted — with Project Team</div>
           }
         </div>
       </div>
@@ -1536,11 +1553,11 @@ function SiteView({boq,onUpdate,onBack,users=[]}){
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,padding:"14px 18px",background:"var(--surface)",border:`1px solid ${locked?"var(--border)":"var(--site)40"}`,borderRadius:12,flexWrap:"wrap",gap:10}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <Btn variant="ghost" small onClick={onBack}>← Back</Btn>
-          <div>
-            <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700}}>{boq.boqId}</h1>
-            <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center",flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <h1 style={{fontFamily:"Sora",fontSize:20,fontWeight:700,margin:0}}>{boq.boqId}</h1>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
               <Badge status={boq.status}/><TimeWithTeam boq={boq}/>
-              {sheets&&sheets.length>1&&<span style={{fontSize:11,color:"var(--site)",background:"var(--site)15",border:"1px solid var(--site)30",borderRadius:20,padding:"2px 8px"}}>{sheets.length} sheets</span>}
+              {sheets&&sheets.length>1&&<span style={{fontSize:11,color:"var(--site)",background:"var(--s2)",border:"1px solid var(--border)",borderRadius:20,padding:"2px 8px"}}>{sheets.length} sheets</span>}
             </div>
           </div>
         </div>
@@ -1548,7 +1565,7 @@ function SiteView({boq,onUpdate,onBack,users=[]}){
           <Btn variant="outline" small onClick={()=>exportBoqExcel({...boq,items:flatItems},"site")}>⬇ Download Sheet</Btn>
           {!locked
             ? <Btn variant="rose" onClick={submit}>✅ Submit & Complete BOQ</Btn>
-            : <div style={{fontSize:12,color:"var(--green)",background:"#052e16",padding:"6px 14px",borderRadius:8,border:"1px solid #10b98140"}}>✅ Completed</div>
+            : <div style={{fontSize:12,color:"var(--green)",background:"var(--s2)",padding:"6px 14px",borderRadius:8,border:"1px solid var(--border)",fontWeight:600}}>✅ Completed</div>
           }
         </div>
       </div>
@@ -1742,12 +1759,12 @@ async function parseProcurementExcel(file){
 }
 
 const PROC_STATUS_CFG={
-  OPEN:     {color:"#3b9eff",bg:"#0d2040",border:"#1a4070"},
-  CLOSED:   {color:"#22c55e",bg:"#062010",border:"#0f4020"},
-  CANCELLED:{color:"#64748b",bg:"#121820",border:"#1e2530"},
-  OVERDUE:  {color:"#ef4444",bg:"#200808",border:"#401010"},
+  OPEN:     {color:"#3b9eff",bg:"var(--s3)",border:"var(--border)"},
+  CLOSED:   {color:"#22c55e",bg:"var(--s3)",border:"var(--border)"},
+  CANCELLED:{color:"#64748b",bg:"var(--s3)",border:"var(--border)"},
+  OVERDUE:  {color:"#ef4444",bg:"var(--s3)",border:"var(--border)"},
 };
-const procStatusCfg=(s,od)=>od?PROC_STATUS_CFG.OVERDUE:(PROC_STATUS_CFG[s]||{color:"#40405a",bg:"#0d0d14",border:"#1a1a28"});
+const procStatusCfg=(s,od)=>od?PROC_STATUS_CFG.OVERDUE:(PROC_STATUS_CFG[s]||{color:"var(--muted)",bg:"var(--s3)",border:"var(--border)"});
 
 function ProcStatusBadge({status,overdue}){
   const cfg=procStatusCfg(status,overdue);
@@ -3720,10 +3737,10 @@ function ProcurementDashboard(){
                   </div>
                   <div style={{display:"flex",flexDirection:"column",gap:6}}>
                     {[
-                      {l:"Open",     v:stat.open,     c:"#3b9eff", bg:"#0d2040"},
-                      {l:"Closed",   v:stat.closed,   c:"#22c55e", bg:"#062010"},
-                      {l:"Cancelled",v:stat.cancelled,c:"#64748b", bg:"#121820"},
-                      {l:"Overdue",  v:stat.overdue,  c:"#ef4444", bg:"#200808"},
+                      {l:"Open",     v:stat.open,     c:"#3b9eff", bg:"var(--s2)"},
+                      {l:"Closed",   v:stat.closed,   c:"#22c55e", bg:"var(--s2)"},
+                      {l:"Cancelled",v:stat.cancelled,c:"#64748b", bg:"var(--s2)"},
+                      {l:"Overdue",  v:stat.overdue,  c:"#ef4444", bg:"var(--s2)"},
                     ].map(({l,v,c,bg})=>(
                       <div key={l} style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -3863,11 +3880,11 @@ function ProcurementDashboard(){
                 <button key={t.key} onClick={()=>setActiveTab(t.key)}
                   style={{padding:"11px 20px",border:"none",background:"transparent",color:isAct?t.color:"var(--muted)",fontSize:13,fontWeight:700,cursor:"pointer",borderBottom:isAct?`2px solid ${t.color}`:"2px solid transparent",transition:"all .15s",display:"flex",alignItems:"center",gap:8}}>
                   <span>{t.key}</span>
-                  <span style={{fontSize:11,color:isAct?"var(--muted)":"var(--s3)"}}>—</span>
-                  <span style={{fontSize:11,color:isAct?"var(--muted)":"var(--s3)"}}>{t.label}</span>
-                  <span style={{background:"var(--s2)",border:"1px solid var(--border)",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700,color:isAct?"var(--muted)":"var(--s3)",fontFamily:"monospace"}}>{t.docs.length}</span>
-                  {open>0&&<span style={{background:"#0d2040",border:"1px solid #1a4070",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700,color:"#3b9eff",fontFamily:"monospace"}}>{open}</span>}
-                  {od>0&&<span style={{background:"#200808",border:"1px solid #401010",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700,color:"#ef4444",fontFamily:"monospace"}}>{od}⚠</span>}
+                  <span style={{fontSize:11,color:isAct?"var(--text)":"var(--muted)",opacity:isAct?0.8:0.6}}>—</span>
+                  <span style={{fontSize:11,color:isAct?"var(--text)":"var(--muted)",opacity:isAct?0.8:0.6}}>{t.label}</span>
+                  <span style={{background:"var(--s2)",border:"1px solid var(--border)",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700,color:isAct?"var(--text)":"var(--muted)",fontFamily:"monospace"}}>{t.docs.length}</span>
+                  {open>0&&<span style={{background:"var(--s3)",border:"1px solid var(--border)",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700,color:"#3b9eff",fontFamily:"monospace"}}>{open}</span>}
+                  {od>0&&<span style={{background:"var(--s3)",border:"1px solid var(--border)",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700,color:"#ef4444",fontFamily:"monospace"}}>{od}⚠</span>}
                 </button>
               );
             })}
@@ -5061,6 +5078,11 @@ export default function App(){
   const [sel,setSel]=useState(null);
   const [notifs,setNotifs]=useState({});
   const [users,setUsers]=useState(INITIAL_USERS);
+  const [theme, setTheme]=useState("dark");
+
+  useEffect(()=>{
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   const [boqs,setBoqs]=useState([
     {
@@ -5134,7 +5156,7 @@ export default function App(){
     }
   };
 
-  if(!user) return <><style>{G}</style><LoginScreen onLogin={u=>{setUser(u);setPage(u.role==="vendor"?"quotes":"dashboard");}} users={users}/></>;
+  if(!user) return <><style>{G}</style><LoginScreen onLogin={u=>{setUser(u);setPage(u.role==="vendor"?"quotes":"dashboard");}} users={users} theme={theme} toggleTheme={()=>setTheme(t=>t==="dark"?"light":"dark")}/></>;
 
   // Helper: can user access this page?
   const canAccess=pg=>!user.pages||user.pages.includes(pg);
@@ -5190,8 +5212,13 @@ export default function App(){
     <>
       <style>{G}</style>
       <div style={{display:"flex",minHeight:"100vh"}}>
-        <Sidebar user={user} page={page} setPage={p=>{setPage(p);setSel(null);}} onLogout={()=>{setUser(null);setSel(null);setPage("dashboard");}} boqs={boqs} notifications={myNotifs} onClearNotif={clearNotifs}/>
-        <main style={{flex:1,padding:28,overflowY:"auto",background:"radial-gradient(ellipse at 80% 10%, #1e293b20 0%, transparent 60%)"}}>{render()}</main>
+        <Sidebar user={user} page={page} setPage={p=>{setPage(p);setSel(null);}} onLogout={()=>{setUser(null);setSel(null);setPage("dashboard");}} boqs={boqs} theme={theme} toggleTheme={()=>setTheme(t=>t==="dark"?"light":"dark")}/>
+        <main style={{flex:1,padding:28,overflowY:"auto",background:"var(--bg)",position:"relative"}}>
+          <div style={{position:"absolute",top:20,right:28,zIndex:999,display:user.role==="procurement"?"none":"block"}}>
+            <NotifBell notifications={myNotifs} onClear={clearNotifs}/>
+          </div>
+          {render()}
+        </main>
       </div>
     </>
   );
